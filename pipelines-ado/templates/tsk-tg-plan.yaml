@@ -1,0 +1,156 @@
+# terragrunt: plan (or plan destroy)
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: serviceConnectionName
+    type: string
+  - name: workingDir
+    type: string
+  - name: bootstrapWorkingDir
+    type: string
+    default: ''
+  - name: tfDestroy
+    type: boolean
+    default: false
+
+steps:
+  - task: Bash@3
+    name: prepare_artifactstaging_plans
+    displayName: prepare ArtifactStagingDirectory
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        rm -rf "$(Build.ArtifactStagingDirectory)/plans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans"
+
+  - task: AzureCLI@2
+    name: tfapply
+    displayName: terragrunt bootstrap
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnectionName }}
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "======= terragrunt version ======="
+        echo "  $(terragrunt --version)"
+        echo "======= terraform version ======="
+        echo "  $(terragrunt run version)"
+        echo "======= working directory ======="
+        echo "  ${{ parameters.bootstrapWorkingDir }}"
+        echo "========================= ======="
+        echo ""
+
+        export ARM_TENANT_ID="$tenantId"
+        export ARM_CLIENT_ID="$servicePrincipalId"
+        export ARM_OIDC_TOKEN="$idToken"
+        export ARM_CLIENT_SECRET="$servicePrincipalKey"
+        if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
+        
+        echo "====== terraform applying ======="
+        terragrunt run --all --working-dir "${{ parameters.bootstrapWorkingDir }}" --queue-exclude-external --non-interactive --provider-cache -- apply -parallelism=30
+
+        rc=$?
+        set -e
+        if [[ $rc -eq 0 ]]; then
+          echo "Terraform apply succeeded."
+        else
+          echo "Terraform apply failed with exit code: $rc"
+          exit $rc
+        fi
+
+        echo "=========================================================="
+        echo ""
+
+  - task: AzureCLI@2
+    name: tfplan
+    displayName: terragrunt plan
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnectionName }}
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "======= terragrunt version ======="
+        echo "  $(terragrunt --version)"
+        echo "======= terraform version ======="
+        echo "  $(terragrunt run version)"
+        echo "======= working directory ======="
+        echo "  ${{ parameters.workingDir }}"
+        echo "========================= ======="
+        echo ""
+
+        export ARM_TENANT_ID="$tenantId"
+        export ARM_CLIENT_ID="$servicePrincipalId"
+        export ARM_OIDC_TOKEN="$idToken"
+        export ARM_CLIENT_SECRET="$servicePrincipalKey"
+        if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
+
+        # use -detailed-exitcode which informs if there are changes in the plan
+        if [ "${{ parameters.tfDestroy }}" = "True" ]; then
+          echo "====== terraform DESTROY planning ======="
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
+        else
+          echo "====== terraform planning ======="
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
+        fi
+
+        rc=$?
+        set -e
+        if [[ $rc -eq 0 ]]; then
+          echo "No changes, infrastructure is up-to-date."
+          echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]unchanged"
+        elif [[ $rc -eq 1 ]]; then
+          echo "Terraform plan failed."
+          exit 1
+        elif [[ $rc -eq 2 ]]; then
+          echo "Infrastructure changes detected."
+          echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]changed"
+        else
+          echo "Unexpected exit code: $rc"
+          exit $rc
+        fi
+
+        echo "=========================================================="
+        echo ""
+
+        plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
+        for plan in "${plans[@]}"; do
+          dir=$(dirname $plan)
+          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/$(basename $plan .tfplan).json"
+        done
+        echo "##vso[task.setvariable variable=planFailed]false"
+
+  - task: Bash@3
+    name: tfplanfailed
+    displayName: set planFailed
+    condition: failed()
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+        echo "##vso[task.setvariable variable=planFailed]true"
+
+  - task: PublishPipelineArtifact@1
+    name: tfplanpublish
+    displayName: publish plan files
+    condition: succeeded()
+    inputs:
+      targetPath: "$(Build.ArtifactStagingDirectory)/plans"
+      artifact: "tfplan_${{ parameters.name }}_$(System.JobAttempt)"
+      publishLocation: "pipeline"
+
+  - task: JaydenMaalouf.terraform-output.TerraformOutput.TerraformOutput@1
+    name: tfoutput
+    displayName: terraform output
+    inputs:
+      useGlobPattern: true
+      outputFilePattern: "**/*.tfplan"
+      searchDirectory: ${{ parameters.workingDir }}

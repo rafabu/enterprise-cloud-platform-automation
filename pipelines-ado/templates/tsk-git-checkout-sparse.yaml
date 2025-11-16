@@ -1,0 +1,77 @@
+# git sparse checkout (with submodules)
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: gitRepoURL
+    type: string
+  - name: gitSparseIncludeFolder
+    type: string
+  - name: gitCheckoutPath
+    type: string
+
+steps:
+  - task: Bash@3
+    name: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: inline
+      script: |
+        # Generate random temporary directory name
+        TEMP_REPO="temp-repo-$(openssl rand -hex 8)"
+        
+        # Clone with full checkout first to properly initialize submodules
+        for i in {1..3}; do
+          echo "Clone attempt $i of 3..."
+          if timeout 60 git clone --recurse-submodules --remote-submodules ${{ parameters.gitRepoURL }} "$TEMP_REPO"; then
+            echo "Clone successful on attempt $i"
+            break
+          else
+            echo "Clone attempt $i failed"
+            rm -rf "$TEMP_REPO" 2>/dev/null || true
+            if [ $i -eq 3 ]; then
+              echo "All clone attempts failed"
+              exit 1
+            fi
+            echo "Waiting 5 seconds before retry..."
+            sleep 5
+          fi
+        done
+        
+        cd "$TEMP_REPO"
+        
+        # Now apply sparse checkout to reduce the working tree
+        git config core.sparseCheckout true
+        
+        # Define which folders to include (including submodule paths)
+        echo "${{ parameters.gitSparseIncludeFolder }}/*" >> .git/info/sparse-checkout
+        echo "lib/*" >> .git/info/sparse-checkout
+        echo ".gitmodules" >> .git/info/sparse-checkout
+
+        # Apply sparse checkout to current working tree
+        git read-tree -m -u HEAD
+        
+        # Update submodules to match sparse checkout
+        git submodule update --init --recursive
+        
+        # Move contents to desired location
+        cp -r . $(Agent.BuildDirectory)/${{ parameters.gitCheckoutPath }}/
+        cd ..
+        rm -rf "$TEMP_REPO"
+        
+        # Summary output
+        echo "========================================"
+        echo "SPARSE REPOSITORY CHECKOUT SUMMARY"
+        echo "========================================"
+        echo "Repository location: $(Agent.BuildDirectory)/${{ parameters.gitCheckoutPath }}/"
+        echo ""
+        echo "Folder structure:"
+        find $(Agent.BuildDirectory)/${{ parameters.gitCheckoutPath }}/ -type d -name ".*" -prune -o -type d -print | head -1024
+        echo ""
+        echo "Size information:"
+        du -sh $(Agent.BuildDirectory)/${{ parameters.gitCheckoutPath }}/ 2>/dev/null || echo "Size calculation unavailable"
+        echo ""
+        echo "Total files:"
+        echo " $(find $(Agent.BuildDirectory)/${{ parameters.gitCheckoutPath }}/ -type f | wc -l)"
+        echo "========================================"

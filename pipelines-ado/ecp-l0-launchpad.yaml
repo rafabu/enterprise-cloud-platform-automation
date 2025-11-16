@@ -1,0 +1,85 @@
+name: "$(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)_${{ parameters.ecp_environment_name }}"
+
+trigger:
+  branches:
+    include:
+      - main
+
+parameters:
+  - name: ecp_environment_name
+    type: string
+    default: rabu-d7
+  - name: terragrunt_version
+    type: string
+    default: latest
+
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+
+- name: ecp_backend_fqdn_l0
+  value: $(ecp_tf_backend_storage_azure_l0)
+- name: ecp_backend_private_ip_l0
+  value: $(ecp_tf_backend_storage_azure_l0)
+
+
+pool:
+  name: $[variables.ecp_ado_agent_pool_azure]
+  demands:
+  - ImageOverride -equals ubuntu-24.04
+
+
+
+stages:
+  - stage: ecp_level0_launchpad
+    displayName: '${{ parameters.ecp_environment_name }}: level0: launchpad'
+    jobs:
+      - job: terragrunt_terraform
+        displayName: 'terraform: plan / verify / apply'
+        steps:
+          - template: ./templates/tsk-agt-backend-resolution.yaml
+            parameters:
+              name: backend_name_resolution
+              displayName: backend name resolution
+              tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          
+          # checkout to $(Agent.BuildDirectory)/s
+          # - enterprise-cloud-platform-automation
+          # - enterprise-cloud-platform-conf
+          - checkout: self
+            name: checkout_self
+            displayName: 'checkout ecp automation (self)'
+            path: s/enterprise-cloud-platform-automation  # This will create $(Agent.BuildDirectory)/ecp-automation
+            clean: true
+            workspaceRepo : false
+            timeoutInMinutes: 1
+            retryCountOnTaskFailure: 2
+
+          - template: ./templates/tsk-git-checkout-sparse.yaml
+            parameters:
+              name: checkout_ecp_conf_sparse
+              displayName: 'checkout ecp configuration (sparse)'
+              gitRepoURL: $(ecp_configuration_repo_url)
+              gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+              gitCheckoutPath: s/enterprise-cloud-platform-conf
+
+          - template: ./templates/tsk-tg-install.yaml
+            parameters:
+              name: install_terragrunt
+              displayName: 'install terragrunt'
+              terragrunt_version: latest
+
+          - template: ./templates/tsk-tf-install.yaml
+            parameters:
+              name: install_terraform
+              displayName: 'install terraform'
+              terraform_version: latest
+
+          - template: ./templates/tsk-tg-plan.yaml
+            parameters:
+              name: ecp_level0_launchpad
+              displayName: level0/launchpad/bootstrap_helper
+              serviceConnectionName: $(ecp_ado_service_connection_azure_l0-contribute)
+              workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/launchpad
+              bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
+              tfDestroy: false
+              

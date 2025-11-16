@@ -1,0 +1,182 @@
+# bash: extract backend config from JSON and assure DNS resolution
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: tfBackendConfigJSON
+    type: string
+    default: '{}'
+
+steps:  
+  - task: Bash@3
+    name: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: inline
+      script: |
+        #!/bin/bash
+        set -e
+        
+        BACKEND_JSON='${{ parameters.tfBackendConfigJSON }}'
+        HOSTS_FILE="/etc/hosts"
+        
+        echo "======= Extracting Backend Configuration ======="
+        echo "Raw backend JSON: $BACKEND_JSON"
+        echo "==============================================="
+        
+        # Extract FQDN and Private IP from JSON
+        if command -v jq >/dev/null 2>&1; then
+          echo "Using jq for JSON parsing..."
+          BACKEND_FQDN=$(echo "$BACKEND_JSON" | jq -r '.fqdn // empty')
+          EXPECTED_IP=$(echo "$BACKEND_JSON" | jq -r '.private_ip_address // empty')
+          BACKEND_NAME=$(echo "$BACKEND_JSON" | jq -r '.name // empty')
+          BACKEND_CONTAINER=$(echo "$BACKEND_JSON" | jq -r '.tf_backend_container // empty')
+        else
+          echo "jq not available, using grep/sed fallback..."
+          BACKEND_FQDN=$(echo "$BACKEND_JSON" | grep -o '"fqdn":"[^"]*"' | sed 's/"fqdn":"\([^"]*\)"/\1/' || echo "")
+          EXPECTED_IP=$(echo "$BACKEND_JSON" | grep -o '"private_ip_address":"[^"]*"' | sed 's/"private_ip_address":"\([^"]*\)"/\1/' || echo "")
+          BACKEND_NAME=$(echo "$BACKEND_JSON" | grep -o '"name":"[^"]*"' | sed 's/"name":"\([^"]*\)"/\1/' || echo "")
+          BACKEND_CONTAINER=$(echo "$BACKEND_JSON" | grep -o '"tf_backend_container":"[^"]*"' | sed 's/"tf_backend_container":"\([^"]*\)"/\1/' || echo "")
+        fi
+        
+        echo "Extracted values:"
+        echo "  FQDN: $BACKEND_FQDN"
+        echo "  Private IP: $EXPECTED_IP"
+        echo "  Name: $BACKEND_NAME"
+        echo "  Container: $BACKEND_CONTAINER"
+        echo ""
+        
+        # Validate that we have the required values
+        if [[ -z "$BACKEND_FQDN" ]]; then
+          echo "❌ ERROR: Could not extract FQDN from JSON"
+          echo "   Please check that the JSON contains a 'fqdn' property"
+          exit 1
+        fi
+        
+        if [[ -z "$EXPECTED_IP" ]]; then
+          echo "❌ ERROR: Could not extract private IP from JSON"
+          echo "   Please check that the JSON contains a 'private_ip_address' property"
+          exit 1
+        fi
+        
+        echo "======= Backend DNS Resolution Check ======="
+        echo "FQDN: $BACKEND_FQDN"
+        echo "Expected IP: $EXPECTED_IP"
+        echo "============================================"
+        
+        # Function to resolve FQDN using methods that honor /etc/hosts
+        resolve_fqdn() {
+            local fqdn="$1"
+            local resolved_ips=()
+            
+            echo "Resolving FQDN '$fqdn' (checking /etc/hosts and local resolution)..."
+            
+            # Method 3: ping test (honors /etc/hosts)
+            if [[ ${#resolved_ips[@]} -eq 0 ]] && command -v ping >/dev/null 2>&1; then
+                echo "Trying ping resolution test..."
+                ping_output=$(ping -c 1 -W 2 "$fqdn" 2>/dev/null | head -1 || true)
+                if [[ -n "$ping_output" ]]; then
+                    # Extract IP from ping output: "PING hostname (IP) ..."
+                    if [[ $ping_output =~ \(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\) ]]; then
+                        ip="${BASH_REMATCH[1]}"
+                        if [[ ! " ${resolved_ips[*]} " =~ " $ip " ]]; then
+                            resolved_ips+=("$ip")
+                        fi
+                    fi
+                fi
+            fi
+            
+            # Return the resolved IPs (space-separated)
+            echo "${resolved_ips[*]}"
+        }
+        
+        # Resolve the FQDN
+        RESOLVED_IPS=$(resolve_fqdn "$BACKEND_FQDN")
+        
+        if [[ -z "$RESOLVED_IPS" ]]; then
+            echo "❌ DNS resolution failed completely for '$BACKEND_FQDN'"
+            NEEDS_HOSTS_ENTRY=true
+        else
+            echo "✅ Resolved IPs: $RESOLVED_IPS"
+            
+            # Check if the expected IP is among the resolved IPs
+            if [[ " $RESOLVED_IPS " =~ " $EXPECTED_IP " ]]; then
+                echo "✅ FQDN '$BACKEND_FQDN' correctly resolves to expected IP '$EXPECTED_IP'"
+                NEEDS_HOSTS_ENTRY=false
+            else
+                echo "❌ FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP'"
+                echo "   Resolved to: $RESOLVED_IPS but expected: $EXPECTED_IP"
+                NEEDS_HOSTS_ENTRY=true
+            fi
+        fi
+        
+        if [[ "$NEEDS_HOSTS_ENTRY" == "true" ]]; then
+            echo ""
+            echo "======= Creating Hosts File Entry ======="
+            
+            # Check if hosts file exists
+            if [[ ! -f "$HOSTS_FILE" ]]; then
+                echo "❌ Hosts file '$HOSTS_FILE' does not exist"
+                exit 1
+            fi
+            
+            # Check if we can write to hosts file
+            # if [[ ! -w "$HOSTS_FILE" ]]; then
+            #     echo "❌ No write permission to hosts file '$HOSTS_FILE'"
+            #     echo "   This task may require elevated permissions (sudo)"
+            #     exit 1
+            # fi
+            
+            ENTRY_TO_ADD="$EXPECTED_IP\t$BACKEND_FQDN"
+            
+            # Check if entry already exists with the correct IP
+            if grep -q "^[[:space:]]*$EXPECTED_IP[[:space:]]\+$BACKEND_FQDN[[:space:]]*$" "$HOSTS_FILE"; then
+                echo "✅ Hosts entry already exists with correct IP"
+            else
+                echo "Adding hosts entry: $EXPECTED_IP  $BACKEND_FQDN"
+                
+                # # Create a backup of the hosts file
+                # cp "$HOSTS_FILE" "$HOSTS_FILE.backup.$(date +%Y%m%d_%H%M%S)"
+                
+                # # Remove any existing entries for this FQDN (with different IPs)
+                # grep -v "[[:space:]]$BACKEND_FQDN[[:space:]]*$" "$HOSTS_FILE" > "$HOSTS_FILE.tmp" || true
+                
+                # Add the new entry
+                echo -e "$EXPECTED_IP\t$BACKEND_FQDN" | sudo tee -a "$HOSTS_FILE" > /dev/null
+                
+                # # Replace the original file
+                # sudo mv "$HOSTS_FILE.tmp" "$HOSTS_FILE"
+                
+                echo "✅ Added hosts entry: $EXPECTED_IP  $BACKEND_FQDN"
+                
+                # Verify the entry was added
+                if grep -q "^[[:space:]]*$EXPECTED_IP[[:space:]]\+$BACKEND_FQDN[[:space:]]*$" "$HOSTS_FILE"; then
+                    echo "✅ Hosts entry verified successfully"
+                else
+                    echo "❌ Failed to verify hosts entry"
+                    exit 1
+                fi
+                sudo systemctl flush-dns || true
+            fi
+        else
+            echo ""
+            echo "✅ No hosts file modification needed"
+        fi
+        
+        echo ""
+        echo "======= Final Verification ======="
+        
+        # Brief pause to allow any cache refresh
+        sleep 2
+        
+        # Final verification - test resolution again
+        FINAL_IPS=$(resolve_fqdn "$BACKEND_FQDN")
+        
+        if [[ -n "$FINAL_IPS" ]]; then
+            echo "Final resolution test: $FINAL_IPS"
+        else
+            echo "⚠️  WARNING: Final verification failed - could not resolve '$BACKEND_FQDN'"
+        fi
+        
+        echo "=================================="
