@@ -33,8 +33,9 @@ stages:
   - stage: ecp_level0_launchpad
     displayName: '${{ parameters.ecp_environment_name }}: level0: launchpad'
     jobs:
-      - job: terragrunt_terraform
-        displayName: 'terraform: plan / verify / apply'
+      - job: terraform_plan
+        displayName: 'terraform: plan'
+        timeoutInMinutes: 120
         steps:
           - template: ./templates/tsk-agt-backend-resolution.yaml
             parameters:
@@ -76,11 +77,95 @@ stages:
 
           - template: ./templates/tsk-tg-plan.yaml
             parameters:
-              name: ecp_level0
+              name: terragrunt_plan
               displayName: level0
               serviceConnectionName: $(ecp_ado_service_connection_azure_l0-contribute)
               workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0
-              queueExcludeDir: "/bootstrap/*"
+              queueExcludeDir: "**/bootstrap/*"
+              bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
+              tfDestroy: false
+
+      - job: manual_approval
+        displayName: "terraform: approve changes"
+        timeoutInMinutes: 60 # 3 days
+        condition: and
+          (
+            eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
+            in(dependencies.terraform_plan.result, 'Succeeded')
+          )
+        dependsOn:
+        - terraform_plan
+        pool: server
+        steps:
+          - task: ManualValidation@1
+            displayName: Manual validation
+            timeoutInMinutes: 55
+            inputs:
+              notifyUsers: "$(approversTeamName)"
+              #approvers: # string. Approvers. 
+              allowApproversToApproveTheirOwnRuns: true
+              instructions: "One or more of these plans have critical changes, please review them and accept or reject accordingly." 
+              onTimeout: 'reject'
+
+      - job: terraform_apply
+        displayName: 'terraform: apply'
+        timeoutInMinutes: 120
+        dependsOn:
+        - terraform_plan
+        - manual_approval
+        condition: and
+          (
+            eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
+            in(dependencies.terraform_plan.result, 'Succeeded'),
+            in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
+          )
+        # container: terragrunt
+        steps:
+          - template: ./templates/tsk-agt-backend-resolution.yaml
+            parameters:
+              name: backend_name_resolution
+              displayName: backend name resolution
+              tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          
+          # checkout to $(Agent.BuildDirectory)/s
+          # - enterprise-cloud-platform-automation
+          # - enterprise-cloud-platform-conf
+          - checkout: self
+            name: checkout_self
+            displayName: 'checkout ecp automation (self)'
+            path: s/enterprise-cloud-platform-automation  # This will create $(Agent.BuildDirectory)/ecp-automation
+            clean: true
+            workspaceRepo : false
+            timeoutInMinutes: 1
+            retryCountOnTaskFailure: 2
+
+          - template: ./templates/tsk-git-checkout-sparse.yaml
+            parameters:
+              name: checkout_ecp_conf_sparse
+              displayName: 'checkout ecp configuration (sparse)'
+              gitRepoURL: $(ecp_configuration_repo_url)
+              gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+              gitCheckoutPath: s/enterprise-cloud-platform-conf
+
+          - template: ./templates/tsk-tg-install.yaml
+            parameters:
+              name: install_terragrunt
+              displayName: 'install terragrunt'
+              terragrunt_version: latest
+
+          - template: ./templates/tsk-tf-install.yaml
+            parameters:
+              name: install_terraform
+              displayName: 'install terraform'
+              terraform_version: latest
+
+          - template: ./templates/tsk-tg-apply.yaml
+            parameters:
+              name: terragrunt_apply
+              displayName: level0
+              serviceConnectionName: $(ecp_ado_service_connection_azure_l0-contribute)
+              workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0
+              queueExcludeDir: "**/bootstrap/*"
               bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
               tfDestroy: false
               
