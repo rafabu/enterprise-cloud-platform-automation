@@ -76,10 +76,11 @@ stages:
 
           - template: ./templates/tsk-tg-plan.yaml
             parameters:
-              name: ecp_level0_launchpad
-              displayName: level0/launchpad/bootstrap_helper
+              name: ecp_level0
+              displayName: level0
               serviceConnectionName: $(ecp_ado_service_connection_azure_l0-contribute)
-              workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/launchpad
+              workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0
+              queueExcludeDir: /bootstrap/*
               bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
               tfDestroy: false
               
