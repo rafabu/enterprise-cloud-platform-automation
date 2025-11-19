@@ -1,9 +1,13 @@
 name: "$(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)_${{ parameters.ecp_environment_name }}"
 
+# Exclude all triggers by default
 trigger:
   branches:
-    include:
-      - main
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
 
 parameters:
   - name: ecp_environment_name
