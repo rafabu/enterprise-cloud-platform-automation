@@ -29,6 +29,8 @@ steps:
 
         rm -rf "$(Build.ArtifactStagingDirectory)/plans"
         mkdir "$(Build.ArtifactStagingDirectory)/plans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/rawplans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/jsonplans"
 
   - task: AzureCLI@2
     name: tfapplybootstrap
@@ -130,7 +132,10 @@ steps:
           echo "     $(basename $plan)"
           dir=$(dirname $plan)
           dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/$(basename $plan .tfplan).json"
+          # Copy actual plan file
+          cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/rawplans/$(basename $plan)"
+          # JSON plan file for easier parsing of outputs
+          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/jsonplans/$(basename $plan .tfplan).json"
         done
         echo "=========================================================="
         echo ""
