@@ -123,12 +123,18 @@ steps:
         echo "=========================================================="
         echo ""
 
+        echo "====== tfplan artifact publishing ======="
+        echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
         plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
         for plan in "${plans[@]}"; do
+          echo "     $(basename $plan)"
           dir=$(dirname $plan)
           dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
           terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/$(basename $plan .tfplan).json"
         done
+        echo "=========================================================="
+        echo ""
+
         echo "##vso[task.setvariable variable=planFailed=true]false"
 
   - task: Bash@3
