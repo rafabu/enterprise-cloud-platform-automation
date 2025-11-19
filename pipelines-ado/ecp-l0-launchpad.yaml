@@ -30,8 +30,8 @@ pool:
 
 
 stages:
-  - stage: ecp_level0_launchpad
-    displayName: '${{ parameters.ecp_environment_name }}: level0: launchpad'
+  - stage: ecp_level0
+    displayName: '${{ parameters.ecp_environment_name }}: level0'
     jobs:
       - job: terraform_plan
         displayName: 'terraform: plan'
