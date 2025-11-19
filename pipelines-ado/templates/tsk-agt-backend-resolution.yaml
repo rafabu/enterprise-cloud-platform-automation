@@ -102,8 +102,9 @@ steps:
                 echo "INFO: FQDN '$BACKEND_FQDN' correctly resolves to expected IP '$EXPECTED_IP'"
                 NEEDS_HOSTS_ENTRY=false
             else
-                echo "Error: FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP'"
-                echo "       Resolved to: $RESOLVED_IPS but expected: $EXPECTED_IP"
+                echo "WARNING: FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP'"
+                echo "         Resolved to: $RESOLVED_IPS but expected: $EXPECTED_IP"
+                 echo "        need to add local hosts entry"
                 NEEDS_HOSTS_ENTRY=true
             fi
         fi
