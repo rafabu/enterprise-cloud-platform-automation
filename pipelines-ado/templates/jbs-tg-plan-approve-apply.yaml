@@ -1,5 +1,7 @@
 # terragrunt: plan-approve-apply job template
 parameters:
+  - name: ecpEnvironmentName
+    type: string
   - name: name
     type: string
   - name: displayName
@@ -114,7 +116,7 @@ jobs:
           instructions: "One or more of these plans have critical changes, please review them and accept or reject accordingly." 
           onTimeout: 'reject'
 
-  - job: terraform_apply
+  - deployment: terraform_apply
     displayName: 'terraform: apply - ${{ parameters.displayName }}'
     timeoutInMinutes: 120
     dependsOn:
@@ -125,51 +127,57 @@ jobs:
         in(dependencies.terraform_plan.result, 'Succeeded'),
         in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
       )
-    steps:
-      - template: ./tsk-agt-backend-resolution.yaml
-        parameters:
-          name: backend_name_resolution
-          displayName: backend name resolution
-          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+    environment: ${{ parameters.ecpEnvironmentName }}
+    strategy:
+      runOnce:
+        preDeploy:
+          steps:
+            - template: ./tsk-agt-backend-resolution.yaml
+              parameters:
+                name: backend_name_resolution
+                displayName: backend name resolution
+                tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
       
-      # checkout to $(Agent.BuildDirectory)/s
-      # - enterprise-cloud-platform-automation
-      # - enterprise-cloud-platform-conf
-      - checkout: self
-        name: checkout_self
-        displayName: 'checkout ecp automation (self)'
-        path: s/enterprise-cloud-platform-automation
-        clean: true
-        workspaceRepo: false
-        timeoutInMinutes: 1
-        retryCountOnTaskFailure: 2
+            # checkout to $(Agent.BuildDirectory)/s
+            # - enterprise-cloud-platform-automation
+            # - enterprise-cloud-platform-conf
+            - checkout: self
+              name: checkout_self
+              displayName: 'checkout ecp automation (self)'
+              path: s/enterprise-cloud-platform-automation
+              clean: true
+              workspaceRepo: false
+              timeoutInMinutes: 1
+              retryCountOnTaskFailure: 2
 
-      - template: ./tsk-git-checkout-sparse.yaml
-        parameters:
-          name: checkout_ecp_conf_sparse
-          displayName: 'checkout ecp configuration (sparse)'
-          gitRepoURL: ${{ parameters.gitRepoURL }}
-          gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
-          gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
+            - template: ./tsk-git-checkout-sparse.yaml
+              parameters:
+                name: checkout_ecp_conf_sparse
+                displayName: 'checkout ecp configuration (sparse)'
+                gitRepoURL: ${{ parameters.gitRepoURL }}
+                gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
+                gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
 
-      - template: ./tsk-tg-install.yaml
-        parameters:
-          name: install_terragrunt
-          displayName: 'install terragrunt'
-          terragrunt_version: ${{ parameters.terragruntVersion }}
+            - template: ./tsk-tg-install.yaml
+              parameters:
+                name: install_terragrunt
+                displayName: 'install terragrunt'
+                terragrunt_version: ${{ parameters.terragruntVersion }}
 
-      - template: ./tsk-tf-install.yaml
-        parameters:
-          name: install_terraform
-          displayName: 'install terraform'
-          terraform_version: ${{ parameters.terraformVersion }}
+            - template: ./tsk-tf-install.yaml
+              parameters:
+                name: install_terraform
+                displayName: 'install terraform'
+                terraform_version: ${{ parameters.terraformVersion }}
 
-      - template: ./tsk-tg-apply.yaml
-        parameters:
-          name: ${{ parameters.name }}
-          displayName: ${{ parameters.displayName }}
-          serviceConnectionName: ${{ parameters.serviceConnectionNameApply }}
-          workingDir: ${{ parameters.workingDir }}
-          queueExcludeDir: ${{ parameters.queueExcludeDir }}
-          bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
-          tfDestroy: ${{ parameters.tfDestroy }}
+        deploy:
+          steps:
+            - template: ./tsk-tg-apply.yaml
+              parameters:
+                name: ${{ parameters.name }}
+                displayName: ${{ parameters.displayName }}
+                serviceConnectionName: ${{ parameters.serviceConnectionNameApply }}
+                workingDir: ${{ parameters.workingDir }}
+                queueExcludeDir: ${{ parameters.queueExcludeDir }}
+                bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
+                tfDestroy: ${{ parameters.tfDestroy }}
