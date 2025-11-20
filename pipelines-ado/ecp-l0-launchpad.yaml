@@ -67,17 +67,22 @@ stages:
               gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
               gitCheckoutPath: s/enterprise-cloud-platform-conf
 
-          - template: ./templates/tsk-tg-install.yaml
+          - template: ./templates/tsk-graphviz-install.yaml
             parameters:
-              name: install_terragrunt
-              displayName: 'install terragrunt'
-              terragrunt_version: latest
+              name: install_graphviz
+              displayName: 'install graphviz'
 
           - template: ./templates/tsk-tf-install.yaml
             parameters:
               name: install_terraform
               displayName: 'install terraform'
               terraform_version: latest
+          
+          - template: ./templates/tsk-tg-install.yaml
+            parameters:
+              name: install_terragrunt
+              displayName: 'install terragrunt'
+              terragrunt_version: latest
 
           - template: ./templates/tsk-tg-plan.yaml
             parameters:

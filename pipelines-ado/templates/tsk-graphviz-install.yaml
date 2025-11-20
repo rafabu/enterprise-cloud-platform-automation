@@ -1,0 +1,19 @@
+# terragrunt: install
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+    
+steps:
+  - task: Bash@3
+    name: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        sudo apt-get update && sudo apt-get install -y graphviz
+        # Verify installation
+        dot -V
