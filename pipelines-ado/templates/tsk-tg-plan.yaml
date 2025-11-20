@@ -29,12 +29,14 @@ steps:
 
         rm -rf "$(Build.ArtifactStagingDirectory)/plans"
         mkdir "$(Build.ArtifactStagingDirectory)/plans"
-        mkdir "$(Build.ArtifactStagingDirectory)/plans/rawplans"
-        mkdir "$(Build.ArtifactStagingDirectory)/plans/jsonplans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tg-dag"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json"
 
   - task: AzureCLI@2
     name: tfapplybootstrap
     displayName: terragrunt bootstrap
+    condition: ne('${{ parameters.bootstrapWorkingDir }}', '')
     inputs:
       azureSubscription: ${{ parameters.serviceConnectionName }}
       addSpnToEnvironment: true
@@ -42,9 +44,10 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        echo "======= terragrunt version ======="
+        echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
-        echo "======= terraform version ======="
+        echo "  $(terragrunt info print)"
+        echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
         echo "  ${{ parameters.bootstrapWorkingDir }}"
@@ -82,9 +85,10 @@ steps:
       scriptType: bash
       scriptLocation: inlineScript
       inlineScript: |
-        echo "======= terragrunt version ======="
+        echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
-        echo "======= terraform version ======="
+        echo "  $(terragrunt info print)"
+        echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
         echo "  ${{ parameters.workingDir }}"
@@ -100,9 +104,13 @@ steps:
         # use -detailed-exitcode which informs if there are changes in the plan
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform DESTROY planning ======="
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
         else
           echo "====== terraform planning ======="
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
         fi
 
@@ -125,6 +133,31 @@ steps:
         echo "=========================================================="
         echo ""
 
+        echo "====== terragrunt DAG artifact publishing ======="
+        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.txt" -type f))
+        for dag in "${dags[@]}"; do
+          echo "     $(basename $dag)"
+          dir=$(dirname $dag)
+          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+        
+          # copy actual txt file
+          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$(basename $dag)"
+        done
+        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.dot" -type f))
+        for dag in "${dags[@]}"; do
+          echo "     $(basename $dag)"
+          dir=$(dirname $dag)
+          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+        
+          dag_basename=$(basename "$dag" .dot)
+          # copy actual dot file
+          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$dag_basename.dot"
+          # create PNG representation
+          dot -Tpng "$dag" -o "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$dag_basename.png"
+        done
+        echo "=========================================================="
+        echo ""
+
         echo "====== tfplan artifact publishing ======="
         echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
         plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
@@ -133,9 +166,9 @@ steps:
           dir=$(dirname $plan)
           dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
           # Copy actual plan file
-          cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/rawplans/$(basename $plan)"
+          cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$(basename $plan)"
           # JSON plan file for easier parsing of outputs
-          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/jsonplans/$(basename $plan .tfplan).json"
+          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json"
         done
         echo "=========================================================="
         echo ""
