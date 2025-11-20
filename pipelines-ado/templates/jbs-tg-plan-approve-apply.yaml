@@ -1,0 +1,175 @@
+# terragrunt: plan-approve-apply job template
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: serviceConnectionNamePlan
+    type: string
+  - name: serviceConnectionNameApply
+    type: string
+  - name: workingDir
+    type: string
+  - name: queueExcludeDir
+    default: 'no-exclude-defined'
+    type: string
+  - name: bootstrapWorkingDir
+    type: string
+    default: ''
+  - name: tfDestroy
+    type: boolean
+    default: false
+  - name: tfBackendConfigJSON
+    type: string
+  - name: gitRepoURL
+    type: string
+  - name: gitSparseIncludeFolder
+    type: string
+  - name: gitCheckoutPath
+    type: string
+  - name: terragruntVersion
+    type: string
+    default: latest
+  - name: terraformVersion
+    type: string
+    default: latest
+  - name: approversTeamName
+    type: string
+
+jobs:
+  - job: terraform_plan
+    displayName: 'terraform: plan - ${{ parameters.displayName }}'
+    timeoutInMinutes: 120
+    steps:
+      - template: ./tsk-agt-backend-resolution.yaml
+        parameters:
+          name: backend_name_resolution
+          displayName: backend name resolution
+          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+      
+      # checkout to $(Agent.BuildDirectory)/s
+      # - enterprise-cloud-platform-automation
+      # - enterprise-cloud-platform-conf
+      - checkout: self
+        name: checkout_self
+        displayName: 'checkout ecp automation (self)'
+        path: s/enterprise-cloud-platform-automation
+        clean: true
+        workspaceRepo: false
+        timeoutInMinutes: 1
+        retryCountOnTaskFailure: 2
+
+      - template: ./tsk-git-checkout-sparse.yaml
+        parameters:
+          name: checkout_ecp_conf_sparse
+          displayName: 'checkout ecp configuration (sparse)'
+          gitRepoURL: ${{ parameters.gitRepoURL }}
+          gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
+          gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
+
+      - template: ./tsk-graphviz-install.yaml
+        parameters:
+          name: install_graphviz
+          displayName: 'install graphviz'
+
+      - template: ./tsk-tf-install.yaml
+        parameters:
+          name: install_terraform
+          displayName: 'install terraform'
+          terraform_version: ${{ parameters.terraformVersion }}
+      
+      - template: ./tsk-tg-install.yaml
+        parameters:
+          name: install_terragrunt
+          displayName: 'install terragrunt'
+          terragrunt_version: ${{ parameters.terragruntVersion }}
+
+      - template: ./tsk-tg-plan.yaml
+        parameters:
+          name: ${{ parameters.name }}
+          displayName: ${{ parameters.displayName }}
+          serviceConnectionName: ${{ parameters.serviceConnectionNamePlan }}
+          workingDir: ${{ parameters.workingDir }}
+          queueExcludeDir: ${{ parameters.queueExcludeDir }}
+          bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
+          tfDestroy: ${{ parameters.tfDestroy }}
+
+  - job: manual_approval
+    displayName: "terraform: approve changes - ${{ parameters.displayName }}"
+    timeoutInMinutes: 60
+    condition: and(
+        eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
+        in(dependencies.terraform_plan.result, 'Succeeded')
+      )
+    dependsOn:
+      - terraform_plan
+    pool: server
+    steps:
+      - task: ManualValidation@1
+        displayName: Manual validation
+        timeoutInMinutes: 55
+        inputs:
+          notifyUsers: "${{ parameters.approversTeamName }}"
+          allowApproversToApproveTheirOwnRuns: true
+          instructions: "One or more of these plans have critical changes, please review them and accept or reject accordingly." 
+          onTimeout: 'reject'
+
+  - job: terraform_apply
+    displayName: 'terraform: apply - ${{ parameters.displayName }}'
+    timeoutInMinutes: 120
+    dependsOn:
+      - terraform_plan
+      - manual_approval
+    condition: and(
+        eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
+        in(dependencies.terraform_plan.result, 'Succeeded'),
+        in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
+      )
+    steps:
+      - template: ./tsk-agt-backend-resolution.yaml
+        parameters:
+          name: backend_name_resolution
+          displayName: backend name resolution
+          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+      
+      # checkout to $(Agent.BuildDirectory)/s
+      # - enterprise-cloud-platform-automation
+      # - enterprise-cloud-platform-conf
+      - checkout: self
+        name: checkout_self
+        displayName: 'checkout ecp automation (self)'
+        path: s/enterprise-cloud-platform-automation
+        clean: true
+        workspaceRepo: false
+        timeoutInMinutes: 1
+        retryCountOnTaskFailure: 2
+
+      - template: ./tsk-git-checkout-sparse.yaml
+        parameters:
+          name: checkout_ecp_conf_sparse
+          displayName: 'checkout ecp configuration (sparse)'
+          gitRepoURL: ${{ parameters.gitRepoURL }}
+          gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
+          gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
+
+      - template: ./tsk-tg-install.yaml
+        parameters:
+          name: install_terragrunt
+          displayName: 'install terragrunt'
+          terragrunt_version: ${{ parameters.terragruntVersion }}
+
+      - template: ./tsk-tf-install.yaml
+        parameters:
+          name: install_terraform
+          displayName: 'install terraform'
+          terraform_version: ${{ parameters.terraformVersion }}
+
+      - template: ./tsk-tg-apply.yaml
+        parameters:
+          name: ${{ parameters.name }}
+          displayName: ${{ parameters.displayName }}
+          serviceConnectionName: ${{ parameters.serviceConnectionNameApply }}
+          workingDir: ${{ parameters.workingDir }}
+          queueExcludeDir: ${{ parameters.queueExcludeDir }}
+          bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
+          tfDestroy: ${{ parameters.tfDestroy }}

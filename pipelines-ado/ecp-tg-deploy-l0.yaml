@@ -1,0 +1,53 @@
+name: "$(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)_${{ parameters.ecp_environment_name }}"
+
+# Exclude all triggers by default
+trigger:
+  branches:
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
+
+parameters:
+  - name: ecp_environment_name
+    type: string
+    default: rabu-d7
+  - name: terragrunt_version
+    type: string
+    default: latest
+
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+
+- name: ecp_backend_fqdn_l0
+  value: $(ecp_tf_backend_storage_azure_l0)
+- name: ecp_backend_private_ip_l0
+  value: $(ecp_tf_backend_storage_azure_l0)
+
+pool:
+  name: $[variables.ecp_ado_agent_pool_azure]
+  demands:
+  - ImageOverride -equals ubuntu-24.04
+
+stages:
+  - stage: ecp_level0
+    displayName: '${{ parameters.ecp_environment_name }}: level0'
+    jobs:
+      - template: ./templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          name: level0
+          displayName: "Level 0 Infrastructure"
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0
+          queueExcludeDir: "**/bootstrap/*"
+          bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
+          tfDestroy: false
+          tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: latest
+          approversTeamName: $(approversTeamName)
