@@ -130,7 +130,7 @@ jobs:
     environment: ${{ parameters.ecpEnvironmentName }}
     strategy:
       runOnce:
-        preDeploy:
+        deploy:
           steps:
             - template: ./tsk-agt-backend-resolution.yaml
               parameters:
@@ -170,8 +170,6 @@ jobs:
                 displayName: 'install terraform'
                 terraform_version: ${{ parameters.terraformVersion }}
 
-        deploy:
-          steps:
             - template: ./tsk-tg-apply.yaml
               parameters:
                 name: ${{ parameters.name }}
