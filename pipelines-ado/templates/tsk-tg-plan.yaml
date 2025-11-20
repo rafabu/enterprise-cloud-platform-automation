@@ -106,11 +106,13 @@ steps:
           echo "====== terraform DESTROY planning ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.txt"
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=tree --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.tree.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
         else
           echo "====== terraform planning ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.txt"
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=tree --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.tree.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
         fi
 
@@ -141,6 +143,15 @@ steps:
           dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
         
           # copy actual txt file
+          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$(basename $dag)"
+        done
+        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.tree.txt" -type f))
+        for dag in "${dags[@]}"; do
+          echo "     $(basename $dag)"
+          dir=$(dirname $dag)
+          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+        
+          # copy actual tree.txt file
           cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$(basename $dag)"
         done
         dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.dot" -type f))
