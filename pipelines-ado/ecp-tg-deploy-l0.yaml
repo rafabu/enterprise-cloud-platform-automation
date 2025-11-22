@@ -17,8 +17,8 @@ parameters:
     type: string
     default: latest
 
-# variables:
-# - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
 
 pool:
   name: $[variables.ecp_ado_agent_pool_azure]
@@ -31,8 +31,9 @@ stages:
     variables:
       - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
     jobs:
-      - template: ./templates/jbs-tg-plan-approve-apply.yaml
+      - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
           name: level0
           displayName: "Level 0 Infrastructure"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
