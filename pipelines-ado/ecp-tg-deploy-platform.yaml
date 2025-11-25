@@ -12,7 +12,7 @@ trigger:
 parameters:
   - name: ecp_environment_name
     type: string
-    default: <ecp_environment_name>
+    default: '<ecp_environment_name>'
   - name: terragrunt_version
     type: string
     default: latest
