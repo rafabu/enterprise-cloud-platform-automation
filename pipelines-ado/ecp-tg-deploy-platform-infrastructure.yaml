@@ -1,4 +1,4 @@
-name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
+name: " - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
 
 # Exclude all triggers by default
 trigger:
