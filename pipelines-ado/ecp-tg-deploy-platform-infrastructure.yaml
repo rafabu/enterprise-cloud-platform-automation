@@ -1,4 +1,4 @@
-name: "$(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)_${{ parameters.ecp_environment_name }}"
+name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
 
 # Exclude all triggers by default
 trigger:
