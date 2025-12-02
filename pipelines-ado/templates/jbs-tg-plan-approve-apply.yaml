@@ -43,6 +43,11 @@ jobs:
     displayName: 'terraform: plan - ${{ parameters.displayName }}'
     timeoutInMinutes: 120
     steps:
+      - template: ./tsk-agt-ims-output.yaml
+        parameters:
+          name: instance_metadata
+          displayName: instance metadata
+
       - template: ./tsk-agt-backend-resolution.yaml
         parameters:
           name: backend_name_resolution

@@ -33,6 +33,18 @@ steps:
         mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw"
         mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json"
 
+  - task: Bash@3
+    name: prepare_terragrunt_folders
+    displayName: prepare terragrunt tmp
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        rm -rf "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt/providers"
+
   - task: AzureCLI@2
     name: tfapplybootstrap
     displayName: terragrunt bootstrap
@@ -47,6 +59,7 @@ steps:
         echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
         echo "  $(terragrunt info print)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
         echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
@@ -74,6 +87,9 @@ steps:
 
         echo "=========================================================="
         echo ""
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
 
   - task: AzureCLI@2
     name: tfplan
@@ -90,6 +106,7 @@ steps:
         echo "  $(terragrunt info print)"
         echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
         echo "======= working directory ======="
         echo "  ${{ parameters.workingDir }}"
         echo "========================= ======="
@@ -105,14 +122,10 @@ steps:
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform DESTROY planning ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.txt"
-          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=tree --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.tree.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
         else
           echo "====== terraform planning ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=text --no-color --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.txt"
-          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=tree --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.tree.txt"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
         fi
 
@@ -120,12 +133,14 @@ steps:
         set -e
         if [[ $rc -eq 0 ]]; then
           echo "No changes, infrastructure is up-to-date."
+          tf_plan_result="unchanged"
           echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]unchanged"
         elif [[ $rc -eq 1 ]]; then
           echo "Terraform plan failed."
           exit 1
         elif [[ $rc -eq 2 ]]; then
           echo "Infrastructure changes detected."
+          tf_plan_result="changed"
           echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]changed"
         else
           echo "Unexpected exit code: $rc"
@@ -135,30 +150,12 @@ steps:
         echo "=========================================================="
         echo ""
 
-        echo "====== terragrunt DAG artifact publishing ======="
-        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.txt" -type f))
-        for dag in "${dags[@]}"; do
-          echo "     $(basename $dag)"
-          dir=$(dirname $dag)
-          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-        
-          # copy actual txt file
-          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$(basename $dag)"
-        done
-        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.tree.txt" -type f))
-        for dag in "${dags[@]}"; do
-          echo "     $(basename $dag)"
-          dir=$(dirname $dag)
-          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-        
-          # copy actual tree.txt file
-          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$(basename $dag)"
-        done
+        echo "====== terragrunt DAG artifact prepare ======="
         dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.dot" -type f))
         for dag in "${dags[@]}"; do
           echo "     $(basename $dag)"
-          dir=$(dirname $dag)
-          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+          #dir=$(dirname $dag)
+          #dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
         
           dag_basename=$(basename "$dag" .dot)
           # copy actual dot file
@@ -169,22 +166,73 @@ steps:
         echo "=========================================================="
         echo ""
 
-        echo "====== tfplan artifact publishing ======="
-        echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
-        plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
-        for plan in "${plans[@]}"; do
-          echo "     $(basename $plan)"
-          dir=$(dirname $plan)
-          dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-          # Copy actual plan file
-          cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$(basename $plan)"
-          # JSON plan file for easier parsing of outputs
-          terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json"
-        done
+        if [[ "$tf_plan_result" == "changed" ]]; then
+          echo "====== tfplan artifact prepare ======="
+          echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
+          plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
+        
+          changed_plans_count=0
+          unchanged_plans_count=0
+        
+          for plan in "${plans[@]}"; do
+            echo "  Processing: $(basename $plan)"
+            dir=$(dirname $plan)
+            dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+          
+            # Generate JSON using terragrunt (slow but reliable)
+            terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json" 2>/dev/null
+          
+            # Read the generated JSON for change detection
+            plan_json_content=$(cat "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json")
+          
+            # Check for resource changes (excluding no-op and data sources that are just reads)
+            resource_change_count=$(echo "$plan_json_content" | jq '
+              [.resource_changes[]? | 
+              select(.change.actions != ["no-op"]) | 
+              select(.mode != "data" or .change.actions != ["read"])] | length
+            ' 2>/dev/null || echo "0")
+          
+            # Check for output changes (only count outputs with non-no-op actions)
+            output_change_count=$(echo "$plan_json_content" | jq '
+              [.output_changes // {} | to_entries[] | select(.value.actions != ["no-op"])] | length
+            ' 2>/dev/null || echo "0")
+          
+            # Total changes
+            total_changes=$((resource_change_count + output_change_count))
+          
+            if [[ "$total_changes" -gt 0 ]]; then
+              has_changes="true"
+            else
+              has_changes="false"
+            fi
+          
+            if [[ "$has_changes" == "true" ]]; then
+              echo "   Changes detected - preparing terraform plan .tfplan and .json as artifact"
+              # Copy actual plan file
+              cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$(basename $plan)"
+              changed_plans_count=$((changed_plans_count + 1))
+            else
+              echo "   No changes detected"
+              # Remove JSON file since we don't need it
+              rm -f "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json"
+              # Remove plan file to keep TerraformOutput extension from publishing it
+              rm -f "$plan"
+              unchanged_plans_count=$((unchanged_plans_count + 1))
+            fi
+          done
+          echo "  Summary: $changed_plans_count plan(s) with changes, $unchanged_plans_count unchanged"
+          echo "##vso[task.setvariable variable=changed_plans_count;isOutput=true]$changed_plans_count"
+        else
+          echo "  Summary: no changes detected, no plan artifacts to prepare"
+          echo "##vso[task.setvariable variable=changed_plans_count;isOutput=true]0"
+        fi
         echo "=========================================================="
         echo ""
 
         echo "##vso[task.setvariable variable=planFailed=true]false"
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
 
   - task: Bash@3
     name: tfplanfailed
@@ -207,7 +255,8 @@ steps:
 
   - task: JaydenMaalouf.terraform-output.TerraformOutput.TerraformOutput@1
     name: tfoutput
-    displayName: terraform output
+    displayName: publish terraform output
+    condition: and(succeeded(), ne(variables['tfplan.changed_plans_count'], '0'))
     inputs:
       useGlobPattern: true
       outputFilePattern: "**/*.tfplan"

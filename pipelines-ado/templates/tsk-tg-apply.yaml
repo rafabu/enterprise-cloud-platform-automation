@@ -19,6 +19,18 @@ parameters:
     default: false
 
 steps:
+  - task: Bash@3
+    name: prepare_terragrunt_folders
+    displayName: prepare terragrunt tmp
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        rm -rf "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt/providers"
+
   - task: AzureCLI@2
     name: tfapplybootstrap
     displayName: terragrunt bootstrap
@@ -33,6 +45,7 @@ steps:
         echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
         echo "  $(terragrunt info print)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
         echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
@@ -60,6 +73,9 @@ steps:
 
         echo "=========================================================="
         echo ""
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
 
   - task: AzureCLI@2
     name: tfapply
@@ -74,6 +90,7 @@ steps:
         echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
         echo "  $(terragrunt info print)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
         echo "======= terraform info ======="
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
@@ -103,3 +120,7 @@ steps:
           echo "Terraform apply failed."
           exit $rc
         fi
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
+

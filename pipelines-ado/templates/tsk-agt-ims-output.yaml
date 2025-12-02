@@ -1,0 +1,69 @@
+# DevOps Instance Metadata Service Output
+parameters:
+  - name: name
+    type: string
+    default: instance_metadata
+  - name: displayName
+    type: string
+    default: Azure Instance Metadata Details
+
+steps:
+  - task: Bash@3
+    name: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+        echo "====== Instance Metadata Service ======"
+        echo ""
+        
+        # Check if IMDS is accessible
+        if ! curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?api-version=2025-04-07" > /dev/null 2>&1; then
+          echo "INFO: Instance Metadata Service not accessible (agent may not be running on Azure VM)"
+          exit 0
+        fi
+        
+        # Extract and set useful variables
+        echo "=== Key Information ==="
+
+        SUBSCRIPTION_ID=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/subscriptionId?api-version=2025-04-07&format=text")
+        echo "Subscription ID: $SUBSCRIPTION_ID"
+        echo "##vso[task.setvariable variable=azure_subscription_id;isOutput=true]$SUBSCRIPTION_ID"
+
+        VM_ID=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/vmId?api-version=2025-04-07&format=text")
+        echo "VM ID: $VM_ID"
+        echo "##vso[task.setvariable variable=azure_vm_id;isOutput=true]$VM_ID"
+        
+        VM_RESOURCE_ID=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/resourceId?api-version=2025-04-07&format=text")
+        echo "VM Resource ID: $VM_RESOURCE_ID"
+        echo "##vso[task.setvariable variable=azure_vm_resource_id;isOutput=true]$VM_RESOURCE_ID"
+        
+        LOCATION=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/location?api-version=2025-04-07&format=text")
+        echo "Location: $LOCATION"
+        echo "##vso[task.setvariable variable=azure_location;isOutput=true]$LOCATION"
+        
+        RESOURCE_GROUP=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/resourceGroupName?api-version=2025-04-07&format=text")
+        echo "Resource Group: $RESOURCE_GROUP"
+        echo "##vso[task.setvariable variable=azure_resource_group;isOutput=true]$RESOURCE_GROUP"
+
+        VM_SIZE=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2025-04-07&format=text")
+        echo "VM Size: $VM_SIZE"
+        echo "##vso[task.setvariable variable=azure_vm_size;isOutput=true]$VM_SIZE"
+
+        VM_OS_TYPE=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/compute/osType?api-version=2025-04-07&format=text")
+        echo "VM OS Type: $VM_OS_TYPE"
+        echo "##vso[task.setvariable variable=azure_vm_os_type;isOutput=true]$VM_OS_TYPE"
+
+        VM_IP_ADDRESS_PRIVATE=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/privateIpAddress?api-version=2025-04-07&format=text")
+        echo "VM Private IP Address: $VM_IP_ADDRESS_PRIVATE"
+        echo "##vso[task.setvariable variable=azure_vm_ip_address_private;isOutput=true]$VM_IP_ADDRESS_PRIVATE"
+
+        VM_IP_ADDRESS_SUBNET_ADDRESS=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/subnet/0/address?api-version=2025-04-07&format=text")
+        VM_IP_ADDRESS_SUBNET_PREFIX=$(curl -s -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/subnet/0/prefix?api-version=2025-04-07&format=text")
+        VM_IP_ADDRESS_SUBNET_CIDR="${VM_IP_ADDRESS_SUBNET_ADDRESS}/${VM_IP_ADDRESS_SUBNET_PREFIX}"
+        echo "VM Subnet: $VM_IP_ADDRESS_SUBNET_CIDR"
+        echo "##vso[task.setvariable variable=azure_vm_ip_address_subnet;isOutput=true]$VM_IP_ADDRESS_SUBNET_CIDR"
+        
+        echo ""
+        echo "=================================================="
