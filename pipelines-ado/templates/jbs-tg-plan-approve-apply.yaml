@@ -54,6 +54,12 @@ jobs:
           displayName: backend name resolution
           tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
       
+      - template: ./tsk-tg-backend-variables.yaml
+        parameters:
+          name: backend_variables
+          displayName: backend variables
+          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+      
       # checkout to $(Agent.BuildDirectory)/s
       # - enterprise-cloud-platform-automation
       # - enterprise-cloud-platform-conf
@@ -141,6 +147,12 @@ jobs:
               parameters:
                 name: backend_name_resolution
                 displayName: backend name resolution
+                tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+
+            - template: ./tsk-tg-backend-variables.yaml
+              parameters:
+                name: backend_variables
+                displayName: backend variables
                 tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
       
             # checkout to $(Agent.BuildDirectory)/s

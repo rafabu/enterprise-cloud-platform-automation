@@ -12,7 +12,8 @@ trigger:
 parameters:
   - name: ecp_environment_name
     type: string
-    default: 'rabu-d7'
+    # default must be '<ecp_environment_name>' <-- will be replaced by pipeline deployment
+    default: '<ecp_environment_name>'
   - name: terragrunt_version
     type: string
     default: latest

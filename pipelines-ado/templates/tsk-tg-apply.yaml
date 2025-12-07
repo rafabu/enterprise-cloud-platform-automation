@@ -95,6 +95,15 @@ steps:
         echo "  $(terragrunt run version)"
         echo "======= working directory ======="
         echo "  ${{ parameters.workingDir }}"
+        echo "======= terraform backend info ======="
+        if [ -n "$ECP_TG_BACKEND_SUBSCRIPTION_ID" ] || [ -n "$ECP_TG_BACKEND_NAME" ]; then
+          echo "  subscription_id: $ECP_TG_BACKEND_SUBSCRIPTION_ID"
+          echo "  resource_group_name: $ECP_TG_BACKEND_RESOURCE_GROUP_NAME"
+          echo "  storage_account_name: $ECP_TG_BACKEND_NAME"
+          echo "  container_name: $ECP_TG_BACKEND_CONTAINER"
+        else
+          echo "  INFO: Backend variables not set, falling back to digesting bootstrap helper JSON file"
+        fi
         echo "========================= ======="
         echo ""
 
@@ -123,4 +132,7 @@ steps:
     env:
       TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
       TG_PROVIDER_CACHE: "1"
-
+      ECP_TG_BACKEND_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_NAME: $(backend_variables.ECP_TG_BACKEND_NAME)
+      ECP_TG_BACKEND_CONTAINER: $(backend_variables.ECP_TG_BACKEND_CONTAINER)
