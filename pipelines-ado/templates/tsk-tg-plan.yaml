@@ -48,7 +48,7 @@ steps:
   - task: AzureCLI@2
     name: tfapplybootstrap
     displayName: terragrunt bootstrap
-    condition: ne('${{ parameters.bootstrapWorkingDir }}', '')
+    condition: and(ne('${{ parameters.bootstrapWorkingDir }}', ''), ne('${{ parameters.bootstrapWorkingDir }}', 'null'))
     inputs:
       azureSubscription: ${{ parameters.serviceConnectionName }}
       addSpnToEnvironment: true
@@ -233,6 +233,286 @@ steps:
     env:
       TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
       TG_PROVIDER_CACHE: "1"
+
+  - task: Bash@3
+    name: tfplanfailed
+    displayName: set planFailed
+    condition: failed()
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+        echo "##vso[task.setvariable variable=planFailed=true]true"
+
+  - task: PublishPipelineArtifact@1
+    name: tfplanpublish
+    displayName: publish plan files
+    condition: succeeded()
+    inputs:
+      targetPath: "$(Build.ArtifactStagingDirectory)/plans"
+      artifact: "tfplan_${{ parameters.name }}_$(System.JobAttempt)"
+      publishLocation: "pipeline"
+
+  - task: JaydenMaalouf.terraform-output.TerraformOutput.TerraformOutput@1
+    name: tfoutput
+    displayName: publish terraform output
+    condition: and(succeeded(), ne(variables['tfplan.changed_plans_count'], '0'))
+    inputs:
+      useGlobPattern: true
+      outputFilePattern: "**/*.tfplan"
+      searchDirectory: ${{ parameters.workingDir }}
+# terragrunt: plan (or plan destroy)
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: serviceConnectionName
+    type: string
+  - name: workingDir
+    type: string
+  - name: queueExcludeDir
+    default: 'no-exclude-defined'
+    type: string
+  - name: bootstrapWorkingDir
+    type: string
+    default: ''
+  - name: tfDestroy
+    type: boolean
+    default: false
+
+steps:
+  - task: Bash@3
+    name: prepare_artifactstaging_plans
+    displayName: prepare ArtifactStagingDirectory
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        rm -rf "$(Build.ArtifactStagingDirectory)/plans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tg-dag"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw"
+        mkdir "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json"
+
+  - task: Bash@3
+    name: prepare_terragrunt_folders
+    displayName: prepare terragrunt tmp
+    inputs:
+      targetType: inline
+      script: |
+        set -e
+
+        rm -rf "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt"
+        mkdir "$(Agent.TempDirectory)/terragrunt/providers"
+
+  - task: AzureCLI@2
+    name: tfapplybootstrap
+    displayName: terragrunt bootstrap
+    condition: ne('${{ parameters.bootstrapWorkingDir }}', '')
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnectionName }}
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        echo "======= terragrunt info ======="
+        echo "  $(terragrunt --version)"
+        echo "  $(terragrunt info print)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
+        echo "======= terraform info ======="
+        echo "  $(terragrunt run version)"
+        echo "======= working directory ======="
+        echo "  ${{ parameters.bootstrapWorkingDir }}"
+        echo "========================= ======="
+        echo ""
+
+        export ARM_TENANT_ID="$tenantId"
+        export ARM_CLIENT_ID="$servicePrincipalId"
+        export ARM_OIDC_TOKEN="$idToken"
+        export ARM_CLIENT_SECRET="$servicePrincipalKey"
+        if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
+        
+        echo "====== terraform applying ======="
+        terragrunt run --all --working-dir "${{ parameters.bootstrapWorkingDir }}" --queue-exclude-external --non-interactive --provider-cache -- apply -parallelism=30
+
+        rc=$?
+        set -e
+        if [[ $rc -eq 0 ]]; then
+          echo "Terraform apply succeeded."
+        else
+          echo "Terraform apply failed with exit code: $rc"
+          exit $rc
+        fi
+
+        echo "=========================================================="
+        echo ""
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
+      ECP_TG_BACKEND_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_NAME: $(backend_variables.ECP_TG_BACKEND_NAME)
+      ECP_TG_BACKEND_CONTAINER: $(backend_variables.ECP_TG_BACKEND_CONTAINER)
+
+  - task: AzureCLI@2
+    name: tfplan
+    displayName: terragrunt plan
+    inputs:
+      azureSubscription: ${{ parameters.serviceConnectionName }}
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |        
+        echo "======= terragrunt info ======="
+        echo "  $(terragrunt --version)"
+        echo "  $(terragrunt info print)"
+        echo "======= terraform info ======="
+        echo "  $(terragrunt run version)"
+        echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
+        echo "======= working directory ======="
+        echo "  ${{ parameters.workingDir }}"
+        echo "======= terraform backend info ======="
+        if [ -n "$ECP_TG_BACKEND_SUBSCRIPTION_ID" ] || [ -n "$ECP_TG_BACKEND_NAME" ]; then
+          echo "  subscription_id: $ECP_TG_BACKEND_SUBSCRIPTION_ID"
+          echo "  resource_group_name: $ECP_TG_BACKEND_RESOURCE_GROUP_NAME"
+          echo "  storage_account_name: $ECP_TG_BACKEND_NAME"
+          echo "  container_name: $ECP_TG_BACKEND_CONTAINER"
+        else
+          echo "  INFO: Backend variables not set, falling back to digesting bootstrap helper JSON file"
+        fi
+        echo "========================= ======="
+        echo ""
+
+        export ARM_TENANT_ID="$tenantId"
+        export ARM_CLIENT_ID="$servicePrincipalId"
+        export ARM_OIDC_TOKEN="$idToken"
+        export ARM_CLIENT_SECRET="$servicePrincipalKey"
+        if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
+
+        # use -detailed-exitcode which informs if there are changes in the plan
+        if [ "${{ parameters.tfDestroy }}" = "True" ]; then
+          echo "====== terraform DESTROY planning ======="
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
+        else
+          echo "====== terraform planning ======="
+          terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-external --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
+        fi
+
+        rc=$?
+        set -e
+        if [[ $rc -eq 0 ]]; then
+          echo "No changes, infrastructure is up-to-date."
+          tf_plan_result="unchanged"
+          echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]unchanged"
+        elif [[ $rc -eq 1 ]]; then
+          echo "Terraform plan failed."
+          exit 1
+        elif [[ $rc -eq 2 ]]; then
+          echo "Infrastructure changes detected."
+          tf_plan_result="changed"
+          echo "##vso[task.setvariable variable=tf_plan_result;isOutput=true]changed"
+        else
+          echo "Unexpected exit code: $rc"
+          exit $rc
+        fi
+
+        echo "=========================================================="
+        echo ""
+
+        echo "====== terragrunt DAG artifact prepare ======="
+        dags=($(find "${{ parameters.workingDir }}" -iname "terragrunt-dag.dot" -type f))
+        for dag in "${dags[@]}"; do
+          echo "     $(basename $dag)"
+          #dir=$(dirname $dag)
+          #dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+        
+          dag_basename=$(basename "$dag" .dot)
+          # copy actual dot file
+          cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$dag_basename.dot"
+          # create PNG representation
+          dot -Tpng "$dag" -o "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$dag_basename.png"
+        done
+        echo "=========================================================="
+        echo ""
+
+        if [[ "$tf_plan_result" == "changed" ]]; then
+          echo "====== tfplan artifact prepare ======="
+          echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
+          plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
+        
+          changed_plans_count=0
+          unchanged_plans_count=0
+        
+          for plan in "${plans[@]}"; do
+            echo "  Processing: $(basename $plan)"
+            dir=$(dirname $plan)
+            dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+          
+            # Generate JSON using terragrunt (slow but reliable)
+            terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json" 2>/dev/null
+          
+            # Read the generated JSON for change detection
+            plan_json_content=$(cat "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json")
+          
+            # Check for resource changes (excluding no-op and data sources that are just reads)
+            resource_change_count=$(echo "$plan_json_content" | jq '
+              [.resource_changes[]? | 
+              select(.change.actions != ["no-op"]) | 
+              select(.mode != "data" or .change.actions != ["read"])] | length
+            ' 2>/dev/null || echo "0")
+          
+            # Check for output changes (only count outputs with non-no-op actions)
+            output_change_count=$(echo "$plan_json_content" | jq '
+              [.output_changes // {} | to_entries[] | select(.value.actions != ["no-op"])] | length
+            ' 2>/dev/null || echo "0")
+          
+            # Total changes
+            total_changes=$((resource_change_count + output_change_count))
+          
+            if [[ "$total_changes" -gt 0 ]]; then
+              has_changes="true"
+            else
+              has_changes="false"
+            fi
+          
+            if [[ "$has_changes" == "true" ]]; then
+              echo "   Changes detected - preparing terraform plan .tfplan and .json as artifact"
+              # Copy actual plan file
+              cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$(basename $plan)"
+              changed_plans_count=$((changed_plans_count + 1))
+            else
+              echo "   No changes detected"
+              # Remove JSON file since we don't need it
+              rm -f "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json"
+              # Remove plan file to keep TerraformOutput extension from publishing it
+              rm -f "$plan"
+              unchanged_plans_count=$((unchanged_plans_count + 1))
+            fi
+          done
+          echo "  Summary: $changed_plans_count plan(s) with changes, $unchanged_plans_count unchanged"
+          echo "##vso[task.setvariable variable=changed_plans_count;isOutput=true]$changed_plans_count"
+        else
+          echo "  Summary: no changes detected, no plan artifacts to prepare"
+          echo "##vso[task.setvariable variable=changed_plans_count;isOutput=true]0"
+        fi
+        echo "=========================================================="
+        echo ""
+
+        echo "##vso[task.setvariable variable=planFailed=true]false"
+    env:
+      TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
+      TG_PROVIDER_CACHE: "1"
+      ECP_TG_BACKEND_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_NAME: $(backend_variables.ECP_TG_BACKEND_NAME)
+      ECP_TG_BACKEND_CONTAINER: $(backend_variables.ECP_TG_BACKEND_CONTAINER)
 
   - task: Bash@3
     name: tfplanfailed

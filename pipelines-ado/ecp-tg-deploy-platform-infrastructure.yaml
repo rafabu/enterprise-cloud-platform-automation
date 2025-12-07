@@ -12,7 +12,7 @@ trigger:
 parameters:
   - name: ecp_environment_name
     type: string
-    default: '<ecp_environment_name>'
+    default: 'rabu-d7'
   - name: terragrunt_version
     type: string
     default: latest
@@ -43,6 +43,30 @@ stages:
           bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
           tfDestroy: false
           tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: latest
+          approversTeamName: $(approversTeamName)
+
+  - stage: ecp_level1
+    displayName: '${{ parameters.ecp_environment_name }}: level1'
+    variables:
+      - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+    jobs:
+      - template: templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
+          name: level1
+          displayName: "Level 1 Infrastructure"
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/
+          queueExcludeDir: "**/entraid/*"
+          bootstrapWorkingDir: ""
+          tfDestroy: false
+          tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l1)
           gitRepoURL: $(ecp_configuration_repo_url)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf

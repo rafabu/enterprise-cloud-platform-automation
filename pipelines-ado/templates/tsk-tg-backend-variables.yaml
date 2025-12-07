@@ -1,0 +1,52 @@
+# bash: extract backend config from JSON
+parameters:
+  - name: name
+    type: string
+  - name: displayName
+    type: string
+  - name: tfBackendConfigJSON
+    type: string
+    default: '{}'
+
+steps:  
+  - task: Bash@3
+    name: ${{ parameters.name }}
+    displayName: ${{ parameters.displayName }}
+    inputs:
+      targetType: inline
+      script: |
+        #!/bin/bash
+        set -e
+        
+        BACKEND_JSON='${{ parameters.tfBackendConfigJSON }}'
+        
+        echo "INFO: ======= Extracting Backend Configuration ======="
+        echo "INFO:     Raw backend JSON: $BACKEND_JSON"
+        echo "INFO: ==============================================="
+        
+        # Extract FQDN and Private IP from JSON
+        if command -v jq >/dev/null 2>&1; then
+          echo "INFO: Using jq for JSON parsing..."
+          BACKEND_FQDN=$(echo "$BACKEND_JSON" | jq -r '.fqdn // empty')
+          EXPECTED_IP=$(echo "$BACKEND_JSON" | jq -r '.private_ip_address // empty')
+          ECP_TG_BACKEND_NAME=$(echo "$BACKEND_JSON" | jq -r '.name // empty')
+          ECP_TG_BACKEND_RESOURCE_GROUP_NAME=$(echo "$BACKEND_JSON" | jq -r '.resource_group_name // empty')
+          ECP_TG_BACKEND_SUBSCRIPTION_ID=$(echo "$BACKEND_JSON" | jq -r '.subscription_id // empty')
+          ECP_TG_BACKEND_CONTAINER=$(echo "$BACKEND_JSON" | jq -r '.tf_backend_container // empty')
+        else
+          echo "ERROR: jq not available..."
+          exit 1
+        fi
+        
+        echo "INFO: Extracted backend values:"
+        echo "      ECP_TG_BACKEND_SUBSCRIPTION_ID:     $ECP_TG_BACKEND_SUBSCRIPTION_ID"
+        echo "      ECP_TG_BACKEND_RESOURCE_GROUP_NAME: $ECP_TG_BACKEND_RESOURCE_GROUP_NAME"
+        echo "      ECP_TG_BACKEND_NAME:                $ECP_TG_BACKEND_NAME"
+        echo "      ECP_TG_BACKEND_CONTAINER:           $ECP_TG_BACKEND_CONTAINER"
+        echo ""
+        
+        # Set variables for use in subsequent pipeline steps
+        echo "##vso[task.setvariable variable=ECP_TG_BACKEND_SUBSCRIPTION_ID;isOutput=true]$ECP_TG_BACKEND_SUBSCRIPTION_ID"
+        echo "##vso[task.setvariable variable=ECP_TG_BACKEND_RESOURCE_GROUP_NAME;isOutput=true]$ECP_TG_BACKEND_RESOURCE_GROUP_NAME"
+        echo "##vso[task.setvariable variable=ECP_TG_BACKEND_NAME;isOutput=true]$ECP_TG_BACKEND_NAME"
+        echo "##vso[task.setvariable variable=ECP_TG_BACKEND_CONTAINER;isOutput=true]$ECP_TG_BACKEND_CONTAINER"
