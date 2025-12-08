@@ -21,7 +21,13 @@ parameters:
   - name: tfDestroy
     type: boolean
     default: false
-  - name: tfBackendConfigJSON
+  # - name: tfBackendConfigJSON
+  #   type: string
+  - name: tfBackendConfigJSONL0
+    type: string
+  - name: tfBackendConfigJSONL1
+    type: string
+  - name: tfBackendConfigJSONL2
     type: string
   - name: gitRepoURL
     type: string
@@ -52,13 +58,19 @@ jobs:
         parameters:
           name: backend_name_resolution
           displayName: backend name resolution
-          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+          # tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+          tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
+          tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
+          tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
       
       - template: ./tsk-tg-backend-variables.yaml
         parameters:
           name: backend_variables
           displayName: backend variables
-          tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+          # tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+          tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
+          tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
+          tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
       
       # checkout to $(Agent.BuildDirectory)/s
       # - enterprise-cloud-platform-automation
@@ -147,13 +159,19 @@ jobs:
               parameters:
                 name: backend_name_resolution
                 displayName: backend name resolution
-                tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+                # tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+                tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
+                tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
+                tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
 
             - template: ./tsk-tg-backend-variables.yaml
               parameters:
                 name: backend_variables
                 displayName: backend variables
-                tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+                # tfBackendConfigJSON: ${{ parameters.tfBackendConfigJSON }}
+                tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
+                tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
+                tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
       
             # checkout to $(Agent.BuildDirectory)/s
             # - enterprise-cloud-platform-automation

@@ -43,7 +43,10 @@ stages:
           queueExcludeDir: "**/bootstrap/*"
           bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
           tfDestroy: false
-          tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
           gitRepoURL: $(ecp_configuration_repo_url)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
@@ -67,7 +70,10 @@ stages:
           queueExcludeDir: "**/entraid/*"
           bootstrapWorkingDir: ""
           tfDestroy: false
-          tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l1)
+         # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
           gitRepoURL: $(ecp_configuration_repo_url)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf

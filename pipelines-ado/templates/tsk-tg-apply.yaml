@@ -96,11 +96,10 @@ steps:
         echo "======= working directory ======="
         echo "  ${{ parameters.workingDir }}"
         echo "======= terraform backend info ======="
-        if [ -n "$ECP_TG_BACKEND_SUBSCRIPTION_ID" ] || [ -n "$ECP_TG_BACKEND_NAME" ]; then
-          echo "  subscription_id: $ECP_TG_BACKEND_SUBSCRIPTION_ID"
-          echo "  resource_group_name: $ECP_TG_BACKEND_RESOURCE_GROUP_NAME"
-          echo "  storage_account_name: $ECP_TG_BACKEND_NAME"
-          echo "  container_name: $ECP_TG_BACKEND_CONTAINER"
+        if [ -n "$ECP_TG_BACKEND_LEVEL0_NAME" ] || [ -n "$ECP_TG_BACKEND_LEVEL1_NAME" ] || [ -n "$ECP_TG_BACKEND_LEVEL2_NAME" ]; then
+          echo "  storage_account_name_level0: $ECP_TG_BACKEND_LEVEL0_NAME"
+          echo "  storage_account_name_level1: $ECP_TG_BACKEND_LEVEL1_NAME"
+          echo "  storage_account_name_level2: $ECP_TG_BACKEND_LEVEL2_NAME"
         else
           echo "  INFO: Backend variables not set, falling back to digesting bootstrap helper JSON file"
         fi
@@ -132,7 +131,16 @@ steps:
     env:
       TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
       TG_PROVIDER_CACHE: "1"
-      ECP_TG_BACKEND_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_SUBSCRIPTION_ID)
-      ECP_TG_BACKEND_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_RESOURCE_GROUP_NAME)
-      ECP_TG_BACKEND_NAME: $(backend_variables.ECP_TG_BACKEND_NAME)
-      ECP_TG_BACKEND_CONTAINER: $(backend_variables.ECP_TG_BACKEND_CONTAINER)
+      # backend variables set for all three levels
+      ECP_TG_BACKEND_LEVEL0_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_LEVEL0_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_LEVEL0_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL0_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_LEVEL0_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL0_NAME)
+      ECP_TG_BACKEND_LEVEL0_CONTAINER: $(backend_variables.ECP_TG_BACKEND_LEVEL0_CONTAINER)
+      ECP_TG_BACKEND_LEVEL1_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_LEVEL1_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_LEVEL1_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL1_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_LEVEL1_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL1_NAME)
+      ECP_TG_BACKEND_LEVEL1_CONTAINER: $(backend_variables.ECP_TG_BACKEND_LEVEL1_CONTAINER)
+      ECP_TG_BACKEND_LEVEL2_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_LEVEL2_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_LEVEL2_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL2_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_LEVEL2_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL2_NAME)
+      ECP_TG_BACKEND_LEVEL2_CONTAINER: $(backend_variables.ECP_TG_BACKEND_LEVEL2_CONTAINER)
