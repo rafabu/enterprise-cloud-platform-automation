@@ -278,6 +278,8 @@ steps:
     name: tfoutput
     displayName: publish terraform output
     condition: and(succeeded(), ne(variables['tfplan.changed_plans_count'], '0'))
+    # may fail if the output is too long (e.g. entire ALZ deployment), so allow failure
+    continueOnError: true
     inputs:
       useGlobPattern: true
       outputFilePattern: "**/*.tfplan"

@@ -124,7 +124,7 @@ jobs:
     timeoutInMinutes: 60
     condition: and(
         eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
-        in(dependencies.terraform_plan.result, 'Succeeded')
+        in(dependencies.terraform_plan.result, 'Succeeded', 'SucceededWithIssues')
       )
     dependsOn:
       - terraform_plan
@@ -147,7 +147,7 @@ jobs:
       - manual_approval
     condition: and(
         eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
-        in(dependencies.terraform_plan.result, 'Succeeded'),
+        in(dependencies.terraform_plan.result, 'Succeeded', 'SucceededWithIssues'),
         in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
       )
     environment: ${{ parameters.ecpEnvironmentName }}
