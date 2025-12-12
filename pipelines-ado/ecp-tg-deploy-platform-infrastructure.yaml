@@ -14,6 +14,9 @@ parameters:
     type: string
     # default must be '<ecp_environment_name>' <-- will be replaced by pipeline deployment
     default: '<ecp_environment_name>'
+  - name: terraform_version
+    type: string
+    default: latest
   - name: terragrunt_version
     type: string
     default: latest
@@ -51,7 +54,7 @@ stages:
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
-          terraformVersion: latest
+          terraformVersion: ${{ parameters.terraform_version }}
           approversTeamName: $(approversTeamName)
 
   - stage: ecp_level1
@@ -78,5 +81,5 @@ stages:
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
-          terraformVersion: latest
+          terraformVersion: ${{ parameters.terraform_version }}
           approversTeamName: $(approversTeamName)
