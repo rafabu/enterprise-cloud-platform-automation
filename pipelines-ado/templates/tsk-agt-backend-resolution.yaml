@@ -111,11 +111,11 @@ steps:
               local fqdn="$1"
               local resolved_ips=()
             
-              echo "INFO: Resolving FQDN '$fqdn' (checking /etc/hosts and local resolution)..."
+              echo "INFO: Resolving FQDN '$fqdn' (checking /etc/hosts and local resolution)..." >&2
             
               # Method 3: ping test (honours /etc/hosts)
               if [[ ${#resolved_ips[@]} -eq 0 ]] && command -v ping >/dev/null 2>&1; then
-                  echo "INFO: Trying ping resolution test..."
+                  echo "INFO: Trying ping resolution test..." >&2
                   ping_output=$(ping -c 1 -W 2 "$fqdn" 2>/dev/null | head -1 || true)
                   if [[ -n "$ping_output" ]]; then
                       # Extract IP from ping output: "PING hostname (IP) ..."
@@ -128,6 +128,7 @@ steps:
                   fi
               fi
               
+              # Return only the IP addresses
               echo "${resolved_ips[*]}"
           }
         
@@ -139,14 +140,22 @@ steps:
               NEEDS_HOSTS_ENTRY=true
           else
               echo "INFO: Resolved IPs: $RESOLVED_IPS"
+              
+              # Trim whitespace from both variables for comparison
+              RESOLVED_IPS_TRIMMED=$(echo "$RESOLVED_IPS" | xargs)
+              EXPECTED_IP_TRIMMED=$(echo "$EXPECTED_IP" | xargs)
+              
+              echo "DEBUG: Comparing IPs:"
+              echo "       Resolved (trimmed): '$RESOLVED_IPS_TRIMMED'"
+              echo "       Expected (trimmed): '$EXPECTED_IP_TRIMMED'"
             
               # Check if the expected IP is among the resolved IPs
-              if [[ " $RESOLVED_IPS " =~ " $EXPECTED_IP " ]]; then
-                  echo "INFO: FQDN '$BACKEND_FQDN' correctly resolves to expected IP '$EXPECTED_IP'"
+              if [[ "$RESOLVED_IPS_TRIMMED" == "$EXPECTED_IP_TRIMMED" ]] || [[ " $RESOLVED_IPS_TRIMMED " =~ " $EXPECTED_IP_TRIMMED " ]]; then
+                  echo "INFO: FQDN '$BACKEND_FQDN' correctly resolves to expected IP '$EXPECTED_IP_TRIMMED'"
                   NEEDS_HOSTS_ENTRY=false
               else
-                  echo "WARNING: FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP'"
-                  echo "         Resolved to: $RESOLVED_IPS but expected: $EXPECTED_IP"
+                  echo "WARNING: FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP_TRIMMED'"
+                  echo "         Resolved to: $RESOLVED_IPS_TRIMMED but expected: $EXPECTED_IP_TRIMMED"
                   echo "         need to add local hosts entry"
                   NEEDS_HOSTS_ENTRY=true
               fi
