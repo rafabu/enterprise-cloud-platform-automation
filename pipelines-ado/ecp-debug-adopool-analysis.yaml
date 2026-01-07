@@ -29,40 +29,52 @@ pool:
   demands:
   - ImageOverride -equals ubuntu-24.04
 
-jobs:
-- job: analysisOutput
-  displayName: 'Analysis Output'
-  steps:
-  - script: |
-      echo "======================================"
-      echo "       ADO Pool Analysis"
-      echo "======================================"
-      echo ""
-      echo "Organization Information:"
-      echo "  Organization URL: $(System.TeamFoundationCollectionUri)"
-      echo "  Organization ID: $(System.CollectionId)"
-      echo ""
-      echo "Project Information:"
-      echo "  Project Name: $(System.TeamProject)"
-      echo "  Project ID: $(System.TeamProjectId)"
-      echo ""
-      echo "Pipeline Information:"
-      echo "  Pipeline Name: $(Build.DefinitionName)"
-      echo "  Pipeline ID: $(System.DefinitionId)"
-      echo "  Build Number: $(Build.BuildNumber)"
-      echo "  Build ID: $(Build.BuildId)"
-      echo ""
-      echo "Agent Pool Information:"
-      echo "  Pool Name: $(Agent.JobName)"
-      echo "  Agent Name: $(Agent.Name)"
-      echo "  Agent Machine Name: $(Agent.MachineName)"
-      echo "  Agent OS: $(Agent.OS)"
-      echo "  Agent Architecture: $(Agent.OSArchitecture)"
-      echo ""
-      echo "Repository Information:"
-      echo "  Repository: $(Build.Repository.Name)"
-      echo "  Branch: $(Build.SourceBranchName)"
-      echo ""
-      echo "======================================"
-    displayName: 'Azure DevOps Pool Analysis'
- 
+stages:
+  - stage: default
+    displayName: 'Default'
+    jobs:
+    - job: adoPoolAnalysis
+      displayName: 'ADO Pool Analysis'
+      steps:
+      - task: Bash@3
+        name: adoPoolAnalysisScript
+        displayName: 'Azure DevOps Pool Analysis'
+        inputs:
+          targetType: inline
+          script: |
+            echo "======================================"
+            echo "       Azure DevOps Pool Analysis"
+            echo "======================================"
+            echo ""
+            echo "Organization Information:"
+            echo "  Organization URL: $(System.TeamFoundationCollectionUri)"
+            echo "  Organization ID: $(System.CollectionId)"
+            echo ""
+            echo "Project Information:"
+            echo "  Project Name: $(System.TeamProject)"
+            echo "  Project ID: $(System.TeamProjectId)"
+            echo ""
+            echo "Pipeline Information:"
+            echo "  Pipeline Name: $(Build.DefinitionName)"
+            echo "  Pipeline ID: $(System.DefinitionId)"
+            echo "  Build Number: $(Build.BuildNumber)"
+            echo "  Build ID: $(Build.BuildId)"
+            echo "  Build Reason: $(Build.Reason)"
+            echo ""
+            echo "Agent Pool Information:"
+            echo "  Pool Name: $(ecp_ado_agent_pool_azure)"
+            echo "  Agent Name: $(Agent.Name)"
+            echo "  Agent Machine Name: $(Agent.MachineName)"
+            echo "  Agent OS: $(Agent.OS)"
+            echo "  Agent Architecture: $(Agent.OSArchitecture)"
+            echo ""
+            echo "Repository Information:"
+            echo "  Repository: $(Build.Repository.Name)"
+            echo "  Branch: $(Build.SourceBranchName)"
+            echo ""
+            echo "======================================"
+            echo "      much more to follow here"
+            echo "      ........................"
+            echo "        ...................."
+            echo "          ................"
+            echo "======================================"
