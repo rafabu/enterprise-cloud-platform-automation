@@ -1,0 +1,50 @@
+name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
+
+# Exclude all triggers by default
+trigger:
+  branches:
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
+
+pool:
+  vmImage: 'ubuntu-latest'  # Default Azure Pipelines hosted pool
+
+jobs:
+- job: ContextOutput
+  displayName: 'Context Output'
+  steps:
+  - script: |
+      echo "======================================"
+      echo "       Example YAML Pipeline!"
+      echo "======================================"
+      echo ""
+      echo "Organization Information:"
+      echo "  Organization URL: $(System.TeamFoundationCollectionUri)"
+      echo "  Organization ID: $(System.CollectionId)"
+      echo ""
+      echo "Project Information:"
+      echo "  Project Name: $(System.TeamProject)"
+      echo "  Project ID: $(System.TeamProjectId)"
+      echo ""
+      echo "Pipeline Information:"
+      echo "  Pipeline Name: $(Build.DefinitionName)"
+      echo "  Pipeline ID: $(System.DefinitionId)"
+      echo "  Build Number: $(Build.BuildNumber)"
+      echo "  Build ID: $(Build.BuildId)"
+      echo ""
+      echo "Agent Pool Information:"
+      echo "  Pool Name: $(Agent.JobName)"
+      echo "  Agent Name: $(Agent.Name)"
+      echo "  Agent Machine Name: $(Agent.MachineName)"
+      echo "  Agent OS: $(Agent.OS)"
+      echo "  Agent Architecture: $(Agent.OSArchitecture)"
+      echo ""
+      echo "Repository Information:"
+      echo "  Repository: $(Build.Repository.Name)"
+      echo "  Branch: $(Build.SourceBranchName)"
+      echo ""
+      echo "======================================"
+    displayName: 'Azure DevOps Environment Information'

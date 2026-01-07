@@ -1,0 +1,68 @@
+name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
+
+# Exclude all triggers by default
+trigger:
+  branches:
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
+
+parameters:
+  - name: ecp_environment_name
+    type: string
+    # default must be '<ecp_environment_name>' <-- will be replaced by pipeline deployment
+    default: '<ecp_environment_name>'
+  - name: terraform_version
+    type: string
+    default: latest
+  - name: terragrunt_version
+    type: string
+    default: latest
+
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+
+pool:
+  name: $[variables.ecp_ado_agent_pool_azure]
+  demands:
+  - ImageOverride -equals ubuntu-24.04
+
+jobs:
+- job: analysisOutput
+  displayName: 'Analysis Output'
+  steps:
+  - script: |
+      echo "======================================"
+      echo "       ADO Pool Analysis"
+      echo "======================================"
+      echo ""
+      echo "Organization Information:"
+      echo "  Organization URL: $(System.TeamFoundationCollectionUri)"
+      echo "  Organization ID: $(System.CollectionId)"
+      echo ""
+      echo "Project Information:"
+      echo "  Project Name: $(System.TeamProject)"
+      echo "  Project ID: $(System.TeamProjectId)"
+      echo ""
+      echo "Pipeline Information:"
+      echo "  Pipeline Name: $(Build.DefinitionName)"
+      echo "  Pipeline ID: $(System.DefinitionId)"
+      echo "  Build Number: $(Build.BuildNumber)"
+      echo "  Build ID: $(Build.BuildId)"
+      echo ""
+      echo "Agent Pool Information:"
+      echo "  Pool Name: $(Agent.JobName)"
+      echo "  Agent Name: $(Agent.Name)"
+      echo "  Agent Machine Name: $(Agent.MachineName)"
+      echo "  Agent OS: $(Agent.OS)"
+      echo "  Agent Architecture: $(Agent.OSArchitecture)"
+      echo ""
+      echo "Repository Information:"
+      echo "  Repository: $(Build.Repository.Name)"
+      echo "  Branch: $(Build.SourceBranchName)"
+      echo ""
+      echo "======================================"
+    displayName: 'Azure DevOps Pool Analysis'
+ 
