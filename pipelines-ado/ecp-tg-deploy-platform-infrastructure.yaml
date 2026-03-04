@@ -19,7 +19,7 @@ parameters:
     default: latest
   - name: terragrunt_version
     type: string
-    default: latest
+    default: 0.99.3 # pin here until issue https://github.com/gruntwork-io/terragrunt/issues/5624 is solved
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
