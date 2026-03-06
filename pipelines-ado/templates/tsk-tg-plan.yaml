@@ -127,7 +127,7 @@ steps:
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
 
         # use -detailed-exitcode which informs if there are changes in the plan
-        if [ "${{ parameters.tfDestroy }}" = "True" ]; then
+        if [ "${{ parameters.tfDestroy }}" = "True" ] || [ "${{ parameters.tfDestroy }}" = "true" ]; then
           echo "====== terraform DESTROY planning ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
