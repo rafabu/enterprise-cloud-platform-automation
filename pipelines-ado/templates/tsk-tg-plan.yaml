@@ -128,11 +128,11 @@ steps:
 
         # use -detailed-exitcode which informs if there are changes in the plan
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
-          echo "====== terraform DESTROY planning ======="
+          echo "====== terraform PLAN DESTROY ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
         else
-          echo "====== terraform planning ======="
+          echo "====== terraform PLAN ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
         fi

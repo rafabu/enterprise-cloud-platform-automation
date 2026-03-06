@@ -103,7 +103,7 @@ steps:
         else
           echo "  INFO: Backend variables not set, falling back to digesting bootstrap helper JSON file"
         fi
-        echo "========================= ======="
+        echo "================================"
         echo ""
 
         export ARM_TENANT_ID="$tenantId"
@@ -113,10 +113,10 @@ steps:
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
 
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
-          echo "====== terraform DESTROY planning ======="
+          echo "====== terraform DESTROY ======="
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- apply -destroy -parallelism=30
         else
-          echo "====== terraform planning ======="
+          echo "====== terraform APPLY ======="
           terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- apply -parallelism=30
         fi
 
