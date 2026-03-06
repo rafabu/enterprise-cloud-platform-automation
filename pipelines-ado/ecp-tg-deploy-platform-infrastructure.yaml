@@ -19,7 +19,7 @@ parameters:
     default: latest
   - name: terragrunt_version
     type: string
-    default: latest
+    default: 0.99.3 # pin here until issue https://github.com/gruntwork-io/terragrunt/issues/5624 is solved
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
@@ -67,10 +67,39 @@ stages:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
           name: level1
           displayName: "Level 1 Infrastructure"
+          ####### TODO: once we have separate service connections for each level, update these parameters accordingly
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
           workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/
-          queueExcludeDir: "**/entraid/*"
+          queueExcludeDir: "no-exclude-defined"
+          bootstrapWorkingDir: ""
+          tfDestroy: false
+         # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: ${{ parameters.terraform_version }}
+          approversTeamName: $(approversTeamName)
+
+  - stage: ecp_level2
+    displayName: '${{ parameters.ecp_environment_name }}: level2'
+    variables:
+      - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+    jobs:
+      - template: templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level2
+          name: level2
+          displayName: "Level 2 Infrastructure"
+          ####### TODO: once we have separate service connections for each level, update these parameters accordingly
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level2/
+          queueExcludeDir: "no-exclude-defined"
           bootstrapWorkingDir: ""
           tfDestroy: false
          # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
