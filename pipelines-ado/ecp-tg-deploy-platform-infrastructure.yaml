@@ -27,7 +27,7 @@ variables:
 pool:
   name: $[variables.ecp_ado_agent_pool_azure]
   demands:
-  - ImageOverride -equals ubuntu-24.04
+  - ImageOverride -equals ubuntu-24.04-g2
 
 stages:
   - stage: ecp_level0
