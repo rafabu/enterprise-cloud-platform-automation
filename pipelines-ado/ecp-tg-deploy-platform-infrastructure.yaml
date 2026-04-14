@@ -19,7 +19,7 @@ parameters:
     default: latest
   - name: terragrunt_version
     type: string
-    default: 1.0.1 # 1.0.1 resolves the implicit stack issue 5624
+    default: 0.97.2 # 0.97.2 does reliably detect multi-stack terraform changes
         # was 0.99.3 # pin here until issue https://github.com/gruntwork-io/terragrunt/issues/5624 is solved
 
 variables:
