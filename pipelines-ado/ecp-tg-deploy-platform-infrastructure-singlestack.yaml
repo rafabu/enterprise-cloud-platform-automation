@@ -32,6 +32,7 @@ parameters:
         level0/launchpad/az-devcenter,
         level0/launchpad/ado-project,
         level0/launchpad/ado-mpool,
+        level0/automation,
         level0/automation/ado-repo-sync-configuration,
         level0/automation/ado-repo-sync-automation,
         level0/automation/ado-pipeline,
