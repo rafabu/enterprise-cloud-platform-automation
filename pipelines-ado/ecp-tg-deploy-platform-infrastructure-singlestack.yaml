@@ -1,0 +1,93 @@
+name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
+
+# Exclude all triggers by default
+trigger:
+  branches:
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
+
+parameters:
+  - name: ecp_environment_name
+    type: string
+    # default must be 'rabu-d7' <-- will be replaced by pipeline deployment
+    default: 'rabu-d7'
+  - name: terraform_version
+    type: string
+    default: latest
+  - name: terragrunt_version
+    type: string
+    default: latest
+  - name: terragrunt_stacks
+    type: string
+    values: [
+        all,
+        level0,
+        level0/launchpad,
+        level0/launchpad/az-launchpad-main,
+        level0/launchpad/az-launchpad-network,
+        level0/launchpad/az-launchpad-backend,
+        level0/launchpad/az-devcenter,
+        level0/launchpad/ado-project,
+        level0/launchpad/ado-mpool,
+        level0/automation,
+        level0/automation/ado-repo-sync-configuration,
+        level0/automation/ado-repo-sync-automation,
+        level0/automation/ado-pipeline,
+        level1,
+        level1/ecproot,
+        level1/ecproot/az-ecp-parent,
+        level1/ecproot/az-platform-subscriptions,
+        level1/management,
+        level1/management/az-alz-shared-library-render,
+        level1/management/az-alz-management-resources,
+        level1/management/az-alz-base,
+        level1/connectivity,
+        level1/connectivity/az-privatelink-privatedns-zones,
+        level2,
+        level2/connectivity,
+        level2/connectivity/az-alz-connectivity-virtual-wan,
+        level2/connectivity/az-connectivity-management
+    ]
+
+
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+
+pool:
+  name: $[variables.ecp_ado_agent_pool_azure]
+  demands:
+  - ImageOverride -equals ubuntu-24.04-g2
+
+stages:
+  - stage: ecp_tg_stack
+    displayName: '${{ parameters.ecp_environment_name }}: ${{ parameters.terragrunt_stacks }}'
+    variables:
+      - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+    jobs:
+      - template: templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
+          name: tgstack
+          displayName: "Infrastructure Unit"
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          ${{ if eq(parameters.terragrunt_stacks, 'all') }}:
+            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
+          ${{ else }}:
+            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/${{ parameters.terragrunt_stacks }}
+          queueExcludeDir: "**/bootstrap/*"
+          bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
+          tfDestroy: false
+          # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: ${{ parameters.terraform_version }}
+          approversTeamName: $(approversTeamName)
