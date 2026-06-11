@@ -8,7 +8,8 @@ parameters:
     type: string
   - name: workingDir
     type: string
-  - name: queueExcludeDir
+  - name: tgFilter
+    type: string
     default: 'no-exclude-defined'
     type: string
   - name: bootstrapWorkingDir
@@ -114,10 +115,10 @@ steps:
 
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform DESTROY ======="
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- apply -destroy -parallelism=30
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- apply -destroy -parallelism=30
         else
           echo "====== terraform APPLY ======="
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- apply -parallelism=30
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- apply -parallelism=30
         fi
 
         rc=$?

@@ -12,7 +12,7 @@ parameters:
     type: string
   - name: workingDir
     type: string
-  - name: queueExcludeDir
+  - name: tgFilter
     default: 'no-exclude-defined'
     type: string
   - name: bootstrapWorkingDir
@@ -115,7 +115,7 @@ jobs:
           displayName: ${{ parameters.displayName }}
           serviceConnectionName: ${{ parameters.serviceConnectionNamePlan }}
           workingDir: ${{ parameters.workingDir }}
-          queueExcludeDir: ${{ parameters.queueExcludeDir }}
+          tgFilter: ${{ parameters.tgFilter }}
           bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
           tfDestroy: ${{ parameters.tfDestroy }}
 
@@ -211,6 +211,6 @@ jobs:
                 displayName: ${{ parameters.displayName }}
                 serviceConnectionName: ${{ parameters.serviceConnectionNameApply }}
                 workingDir: ${{ parameters.workingDir }}
-                queueExcludeDir: ${{ parameters.queueExcludeDir }}
+                tgFilter: ${{ parameters.tgFilter }}
                 bootstrapWorkingDir: ${{ parameters.bootstrapWorkingDir }}
                 tfDestroy: ${{ parameters.tfDestroy }}
