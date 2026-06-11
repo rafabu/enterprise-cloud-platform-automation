@@ -13,8 +13,8 @@ parameters:
   - name: workingDir
     type: string
   - name: tgFilter
-    default: 'no-exclude-defined'
     type: string
+    default: 'no-exclude-defined'
   - name: bootstrapWorkingDir
     type: string
     default: ''
