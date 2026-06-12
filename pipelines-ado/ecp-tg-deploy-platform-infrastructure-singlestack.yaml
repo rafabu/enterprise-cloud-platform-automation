@@ -78,7 +78,7 @@ stages:
             workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
           ${{ else }}:
             workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/${{ parameters.terragrunt_stacks }}
-          queueExcludeDir: "**/bootstrap/*"
+          tgFilter: "!bootstrap/**"
           bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
           tfDestroy: false
           # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)

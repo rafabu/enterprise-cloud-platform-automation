@@ -8,9 +8,9 @@ parameters:
     type: string
   - name: workingDir
     type: string
-  - name: queueExcludeDir
-    default: 'no-exclude-defined'
+  - name: tgFilter
     type: string
+    default: 'no-exclude-defined'
   - name: bootstrapWorkingDir
     type: string
     default: ''
@@ -130,11 +130,11 @@ steps:
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform PLAN DESTROY ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
         else
           echo "====== terraform PLAN ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --queue-exclude-dir "${{ parameters.queueExcludeDir }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
         fi
 
         rc=$?
