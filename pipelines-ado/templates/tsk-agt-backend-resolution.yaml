@@ -33,7 +33,7 @@ steps:
         HOSTS_FILE="/etc/hosts"
 
         # Array of levels to process
-        LEVELS=("level0" "level1" "level2")
+        LEVELS=("level0" "level1" "level2" "level3")
         
         for LEVEL in "${LEVELS[@]}"; do
           echo ""
