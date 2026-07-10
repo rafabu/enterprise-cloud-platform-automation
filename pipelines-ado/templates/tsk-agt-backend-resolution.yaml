@@ -16,6 +16,9 @@ parameters:
   - name: tfBackendConfigJSONL2
     type: string
     default: '{}'
+  - name: tfBackendConfigJSONL3
+    type: string
+    default: '{}'
 
 steps:  
   - task: Bash@3
@@ -30,7 +33,7 @@ steps:
         HOSTS_FILE="/etc/hosts"
 
         # Array of levels to process
-        LEVELS=("level0" "level1" "level2")
+        LEVELS=("level0" "level1" "level2" "level3")
         
         for LEVEL in "${LEVELS[@]}"; do
           echo ""
@@ -48,6 +51,9 @@ steps:
               ;;
             "level2")
               BACKEND_JSON='${{ parameters.tfBackendConfigJSONL2 }}'
+              ;;
+            "level3")
+              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL3 }}'
               ;;
             *)
               echo "ERROR: Unknown level: $LEVEL"

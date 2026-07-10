@@ -1,0 +1,57 @@
+name: "$(BuildDefinitionName) - $(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)"
+
+# Exclude all triggers by default
+trigger:
+  branches:
+    exclude:
+      - '*'  # Exclude all branches
+  paths:
+    exclude:
+      - '*'  # Exclude all paths
+
+parameters:
+  - name: ecp_environment_name
+    type: string
+    # default must be '<ecp_environment_name>' <-- will be replaced by pipeline deployment
+    default: '<ecp_environment_name>'
+  - name: terraform_version
+    type: string
+    default: latest
+  - name: terragrunt_version
+    type: string
+    default: latest
+
+variables:
+- group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+
+pool:
+  name: $[variables.ecp_ado_agent_pool_azure]
+  demands:
+  - ImageOverride -equals ubuntu-24.04-g2
+
+stages:
+  - stage: ecp_lz_tg_stack
+    displayName: 'Landing Zone on ${{ parameters.ecp_environment_name }}'
+    variables:
+      - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+    jobs:
+      - template: templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level3
+          name: lztgstack
+          displayName: "Landing Zone Unit"
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level3/vending/$(terragrunt_stack)
+          tfDestroy: false
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: ${{ parameters.terraform_version }}
+          approversTeamName: $(approversTeamName)

@@ -29,8 +29,13 @@ parameters:
     type: string
   - name: tfBackendConfigJSONL2
     type: string
+  - name: tfBackendConfigJSONL3
+    type: string
   - name: gitRepoURL
     type: string
+  - name: gitRepoRef
+    type: string
+    default: 'main'
   - name: gitSparseIncludeFolder
     type: string
   - name: gitCheckoutPath
@@ -62,6 +67,7 @@ jobs:
           tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+          tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
       - template: ./tsk-tg-backend-variables.yaml
         parameters:
@@ -71,6 +77,7 @@ jobs:
           tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+          tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
       # checkout to $(Agent.BuildDirectory)/s
       # - enterprise-cloud-platform-automation
@@ -89,6 +96,7 @@ jobs:
           name: checkout_ecp_conf_sparse
           displayName: 'checkout ecp configuration (sparse)'
           gitRepoURL: ${{ parameters.gitRepoURL }}
+          gitRepoRef: ${{ parameters.gitRepoRef }}
           gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
           gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
 
@@ -163,6 +171,7 @@ jobs:
                 tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
                 tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
                 tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+                tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
 
             - template: ./tsk-tg-backend-variables.yaml
               parameters:
@@ -172,6 +181,7 @@ jobs:
                 tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
                 tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
                 tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+                tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
             # checkout to $(Agent.BuildDirectory)/s
             # - enterprise-cloud-platform-automation
