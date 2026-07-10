@@ -29,6 +29,8 @@ parameters:
     type: string
   - name: tfBackendConfigJSONL2
     type: string
+  - name: tfBackendConfigJSONL3
+    type: string
   - name: gitRepoURL
     type: string
   - name: gitSparseIncludeFolder
@@ -62,6 +64,7 @@ jobs:
           tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+          tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
       - template: ./tsk-tg-backend-variables.yaml
         parameters:
@@ -71,6 +74,7 @@ jobs:
           tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+          tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
       # checkout to $(Agent.BuildDirectory)/s
       # - enterprise-cloud-platform-automation
@@ -163,6 +167,7 @@ jobs:
                 tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
                 tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
                 tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+                tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
 
             - template: ./tsk-tg-backend-variables.yaml
               parameters:
@@ -172,6 +177,7 @@ jobs:
                 tfBackendConfigJSONL0: ${{ parameters.tfBackendConfigJSONL0 }}
                 tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
                 tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
+                tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
       
             # checkout to $(Agent.BuildDirectory)/s
             # - enterprise-cloud-platform-automation

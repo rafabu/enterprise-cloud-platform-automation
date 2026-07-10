@@ -16,6 +16,9 @@ parameters:
   - name: tfBackendConfigJSONL2
     type: string
     default: '{}'
+  - name: tfBackendConfigJSONL3
+    type: string
+    default: '{}'
 
 steps:  
   - task: Bash@3
@@ -41,6 +44,9 @@ steps:
               ;;
             "level2")
               BACKEND_JSON='${{ parameters.tfBackendConfigJSONL2 }}'
+              ;;
+            "level3")
+              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL3 }}'
               ;;
             *)
               echo "ERROR: Unknown level: $LEVEL"
