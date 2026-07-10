@@ -108,6 +108,7 @@ stages:
           tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
           tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
           gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
