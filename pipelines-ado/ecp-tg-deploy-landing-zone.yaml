@@ -20,8 +20,6 @@ parameters:
   - name: terragrunt_version
     type: string
     default: latest
-  - name: terragrunt_stack
-    type: string
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
@@ -33,7 +31,7 @@ pool:
 
 stages:
   - stage: ecp_lz_tg_stack
-    displayName: '${{ parameters.ecp_environment_name }}: ${{ parameters.terragrunt_stack }}'
+    displayName: 'Landing Zone on ${{ parameters.ecp_environment_name }}'
     variables:
       - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
     jobs:
@@ -44,7 +42,7 @@ stages:
           displayName: "Landing Zone Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level3/vending/${{ parameters.terragrunt_stack }}
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level3/vending/$(terragrunt_stack)
           tfDestroy: false
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
