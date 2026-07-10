@@ -6,6 +6,9 @@ parameters:
     type: string
   - name: gitRepoURL
     type: string
+  - name: gitRepoRef
+    type: string
+    default: 'main'
   - name: gitSparseIncludeFolder
     type: string
   - name: gitCheckoutPath
@@ -24,7 +27,7 @@ steps:
         # Clone with full checkout first to properly initialize submodules
         for i in {1..3}; do
           echo "Clone attempt $i of 3..."
-          if timeout 60 git clone --recurse-submodules --remote-submodules ${{ parameters.gitRepoURL }} "$TEMP_REPO"; then
+          if timeout 60 git clone --no-checkout --recurse-submodules --remote-submodules ${{ parameters.gitRepoURL }} "$TEMP_REPO"; then
             echo "Clone successful on attempt $i"
             break
           else
@@ -48,6 +51,17 @@ steps:
         echo "${{ parameters.gitSparseIncludeFolder }}/*" >> .git/info/sparse-checkout
         echo "lib/*" >> .git/info/sparse-checkout
         echo ".gitmodules" >> .git/info/sparse-checkout
+
+        TARGET_REF="${{ parameters.gitRepoRef }}"
+        if [[ "$TARGET_REF" == refs/heads/* ]]; then
+          TARGET_REF="${TARGET_REF#refs/heads/}"
+          git checkout "$TARGET_REF" || git checkout -B "$TARGET_REF" "origin/$TARGET_REF"
+        elif [[ "$TARGET_REF" == refs/tags/* ]]; then
+          TARGET_REF="${TARGET_REF#refs/tags/}"
+          git checkout "$TARGET_REF"
+        else
+          git checkout "$TARGET_REF" || git checkout "origin/$TARGET_REF"
+        fi
 
         # Apply sparse checkout to current working tree
         git read-tree -m -u HEAD

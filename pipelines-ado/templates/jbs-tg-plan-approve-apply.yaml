@@ -33,6 +33,9 @@ parameters:
     type: string
   - name: gitRepoURL
     type: string
+  - name: gitRepoRef
+    type: string
+    default: 'main'
   - name: gitSparseIncludeFolder
     type: string
   - name: gitCheckoutPath
@@ -93,6 +96,7 @@ jobs:
           name: checkout_ecp_conf_sparse
           displayName: 'checkout ecp configuration (sparse)'
           gitRepoURL: ${{ parameters.gitRepoURL }}
+          gitRepoRef: ${{ parameters.gitRepoRef }}
           gitSparseIncludeFolder: ${{ parameters.gitSparseIncludeFolder }}
           gitCheckoutPath: ${{ parameters.gitCheckoutPath }}
 
