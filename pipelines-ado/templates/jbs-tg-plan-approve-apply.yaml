@@ -14,7 +14,7 @@ parameters:
     type: string
   - name: tgFilter
     type: string
-    default: 'no-exclude-defined'
+    default: ''
   - name: bootstrapWorkingDir
     type: string
     default: ''
