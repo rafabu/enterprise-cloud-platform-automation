@@ -10,7 +10,7 @@ parameters:
     type: string
   - name: tgFilter
     type: string
-    default: 'no-exclude-defined'
+    default: ''
   - name: bootstrapWorkingDir
     type: string
     default: ''
@@ -113,12 +113,17 @@ steps:
         export ARM_CLIENT_SECRET="$servicePrincipalKey"
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
 
+        tg_filter_args=()
+        if [ -n "${{ parameters.tgFilter }}" ]; then
+          tg_filter_args=(--filter "${{ parameters.tgFilter }}")
+        fi
+
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform DESTROY ======="
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- apply -destroy -parallelism=30
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- apply -destroy -parallelism=30
         else
           echo "====== terraform APPLY ======="
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" --filter "${{ parameters.tgFilter }}" --non-interactive --provider-cache -- apply -parallelism=30
+          terragrunt run --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- apply -parallelism=30
         fi
 
         rc=$?

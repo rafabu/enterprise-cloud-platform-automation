@@ -72,7 +72,7 @@ stages:
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
           workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/
-          tgFilter: "no-exclude-defined"
+          tgFilter: ""
           bootstrapWorkingDir: ""
           tfDestroy: false
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
@@ -101,7 +101,7 @@ stages:
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
           workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level2/
-          tgFilter: "no-exclude-defined"
+          tgFilter: ""
           bootstrapWorkingDir: ""
           tfDestroy: false
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
