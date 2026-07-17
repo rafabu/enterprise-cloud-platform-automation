@@ -12,8 +12,8 @@ trigger:
 parameters:
   - name: ecp_environment_name
     type: string
-    # default must be 'rabu-d7' <-- will be replaced by pipeline deployment
-    default: 'rabu-d7'
+    # default must be '<ecp_environment_name>' <-- will be replaced by pipeline deployment
+    default: '<ecp_environment_name>'
   - name: terraform_version
     type: string
     default: latest
@@ -69,7 +69,10 @@ stages:
     jobs:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
-          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
+          ${{ if eq(parameters.terragrunt_stacks, 'all') }}:
+            ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
+          ${{ else }}:
+            ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level${{ replace(split(parameters.terragrunt_stacks, '/')[0], 'level', '') }}
           name: tgstack
           displayName: "Infrastructure Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
@@ -85,7 +88,9 @@ stages:
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
           tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
           gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}

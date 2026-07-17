@@ -100,10 +100,11 @@ steps:
           echo "  storage_account_name_level0: $ECP_TG_BACKEND_LEVEL0_NAME"
           echo "  storage_account_name_level1: $ECP_TG_BACKEND_LEVEL1_NAME"
           echo "  storage_account_name_level2: $ECP_TG_BACKEND_LEVEL2_NAME"
+          echo "  storage_account_name_level3: $ECP_TG_BACKEND_LEVEL3_NAME"
         else
           echo "  INFO: Backend variables not set, falling back to digesting bootstrap helper JSON file"
         fi
-        echo "================================"
+        echo "====================================="
         echo ""
 
         export ARM_TENANT_ID="$tenantId"
@@ -144,3 +145,7 @@ steps:
       ECP_TG_BACKEND_LEVEL2_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL2_RESOURCE_GROUP_NAME)
       ECP_TG_BACKEND_LEVEL2_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL2_NAME)
       ECP_TG_BACKEND_LEVEL2_CONTAINER: $(backend_variables.ECP_TG_BACKEND_LEVEL2_CONTAINER)
+      ECP_TG_BACKEND_LEVEL3_SUBSCRIPTION_ID: $(backend_variables.ECP_TG_BACKEND_LEVEL3_SUBSCRIPTION_ID)
+      ECP_TG_BACKEND_LEVEL3_RESOURCE_GROUP_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL3_RESOURCE_GROUP_NAME)
+      ECP_TG_BACKEND_LEVEL3_NAME: $(backend_variables.ECP_TG_BACKEND_LEVEL3_NAME)
+      ECP_TG_BACKEND_LEVEL3_CONTAINER: $(backend_variables.ECP_TG_BACKEND_LEVEL3_CONTAINER)

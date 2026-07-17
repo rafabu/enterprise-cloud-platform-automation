@@ -46,11 +46,12 @@ stages:
           tgFilter: "!bootstrap/**"
           bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
           tfDestroy: false
-          # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
           tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
           gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
@@ -74,11 +75,12 @@ stages:
           tgFilter: "no-exclude-defined"
           bootstrapWorkingDir: ""
           tfDestroy: false
-         # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
           tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
           gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
@@ -102,11 +104,12 @@ stages:
           tgFilter: "no-exclude-defined"
           bootstrapWorkingDir: ""
           tfDestroy: false
-         # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
           tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
           gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
           gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
           gitCheckoutPath: s/enterprise-cloud-platform-conf
           terragruntVersion: ${{ parameters.terragrunt_version }}
