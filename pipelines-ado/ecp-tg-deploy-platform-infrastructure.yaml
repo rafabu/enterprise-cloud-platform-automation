@@ -19,7 +19,7 @@ parameters:
     default: latest
   - name: terragrunt_version
     type: string
-    default: latest
+    default: '1.1.1' # v1.1.2: regression which badly impacts plan performance with 'Getting output of dependency'
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
