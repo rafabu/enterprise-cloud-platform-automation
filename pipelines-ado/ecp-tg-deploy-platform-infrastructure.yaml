@@ -16,10 +16,10 @@ parameters:
     default: '<ecp_environment_name>'
   - name: terraform_version
     type: string
-    default: latest
+    default: '<ecp_terraform_version>'
   - name: terragrunt_version
     type: string
-    default: latest
+    default: '<ecp_terragrunt_version>' # v1.1.2: regression which badly impacts plan performance with 'Getting output of dependency'
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
