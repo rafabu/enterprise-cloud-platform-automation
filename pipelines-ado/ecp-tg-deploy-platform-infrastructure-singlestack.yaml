@@ -71,16 +71,14 @@ stages:
         parameters:
           ${{ if eq(parameters.terragrunt_stacks, 'all') }}:
             ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
+            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
           ${{ else }}:
             ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level${{ replace(split(parameters.terragrunt_stacks, '/')[0], 'level', '') }}
+            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/${{ parameters.terragrunt_stacks }}
           name: tgstack
           displayName: "Infrastructure Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          ${{ if eq(parameters.terragrunt_stacks, 'all') }}:
-            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
-          ${{ else }}:
-            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/${{ parameters.terragrunt_stacks }}
           tgFilter: "!bootstrap/**"
           bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
           tfDestroy: false

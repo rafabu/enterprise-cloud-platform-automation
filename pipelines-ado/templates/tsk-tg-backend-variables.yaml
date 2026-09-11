@@ -20,7 +20,7 @@ parameters:
     type: string
     default: '{}'
 
-steps:  
+steps:
   - task: Bash@3
     name: ${{ parameters.name }}
     displayName: ${{ parameters.displayName }}
@@ -32,8 +32,8 @@ steps:
 
         # Array of levels to process
         LEVELS=("level0" "level1" "level2" "level3")
-        
-        for LEVEL in "${LEVELS[@]}"; do  
+
+        for LEVEL in "${LEVELS[@]}"; do
           # Select the appropriate backend JSON based on level
           case "$LEVEL" in
             "level0")
@@ -53,18 +53,18 @@ steps:
               continue
               ;;
           esac
-          
+
           # Skip if JSON is empty or just '{}'
           if [[ -z "$BACKEND_JSON" ]] || [[ "$BACKEND_JSON" == "{}" ]]; then
             echo "INFO: No backend configuration for $LEVEL, skipping..."
             continue
           fi
-        
+
           echo "INFO: ======= Extracting Backend Configuration ======="
           echo "INFO:     Level: $LEVEL"
           echo "INFO:     Raw backend JSON: $BACKEND_JSON"
           echo "INFO: ==============================================="
-        
+
           # Extract FQDN and Private IP from JSON
           if command -v jq >/dev/null 2>&1; then
             echo "INFO: Using jq for JSON parsing..."
@@ -78,7 +78,7 @@ steps:
             echo "ERROR: jq not available..."
             exit 1
           fi
-        
+
           LEVEL_UPPER=$(echo "$LEVEL" | tr '[:lower:]' '[:upper:]')
           echo "INFO: Extracted backend values for $LEVEL:"
           echo "      ECP_TG_BACKEND_${LEVEL_UPPER}_SUBSCRIPTION_ID:     $ECP_TG_BACKEND_SUBSCRIPTION_ID"
@@ -93,9 +93,8 @@ steps:
           echo "##vso[task.setvariable variable=ECP_TG_BACKEND_${LEVEL_UPPER}_NAME;isOutput=true]$ECP_TG_BACKEND_NAME"
           echo "##vso[task.setvariable variable=ECP_TG_BACKEND_${LEVEL_UPPER}_CONTAINER;isOutput=true]$ECP_TG_BACKEND_CONTAINER"
         done
-        
+
         echo ""
         echo "INFO: ========================================================"
         echo "INFO: All levels processed"
         echo "INFO: ========================================================"
-        

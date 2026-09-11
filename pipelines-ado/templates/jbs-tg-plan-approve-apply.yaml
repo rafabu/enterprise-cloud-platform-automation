@@ -68,7 +68,7 @@ jobs:
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
           tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
-      
+
       - template: ./tsk-tg-backend-variables.yaml
         parameters:
           name: backend_variables
@@ -78,7 +78,7 @@ jobs:
           tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
           tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
           tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
-      
+
       # checkout to $(Agent.BuildDirectory)/s
       # - enterprise-cloud-platform-automation
       # - enterprise-cloud-platform-conf
@@ -110,7 +110,7 @@ jobs:
           name: install_terraform
           displayName: 'install terraform'
           terraform_version: ${{ parameters.terraformVersion }}
-      
+
       - template: ./tsk-tg-install.yaml
         parameters:
           name: install_terragrunt
@@ -144,7 +144,7 @@ jobs:
         inputs:
           notifyUsers: "${{ parameters.approversTeamName }}"
           allowApproversToApproveTheirOwnRuns: true
-          instructions: "One or more of these plans have critical changes, please review them and accept or reject accordingly." 
+          instructions: "One or more of these plans have critical changes, please review them and accept or reject accordingly."
           onTimeout: 'reject'
 
   - deployment: terraform_apply
@@ -182,7 +182,7 @@ jobs:
                 tfBackendConfigJSONL1: ${{ parameters.tfBackendConfigJSONL1 }}
                 tfBackendConfigJSONL2: ${{ parameters.tfBackendConfigJSONL2 }}
                 tfBackendConfigJSONL3: ${{ parameters.tfBackendConfigJSONL3 }}
-      
+
             # checkout to $(Agent.BuildDirectory)/s
             # - enterprise-cloud-platform-automation
             # - enterprise-cloud-platform-conf

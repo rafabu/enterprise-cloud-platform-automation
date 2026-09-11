@@ -72,7 +72,7 @@ steps:
         export ARM_OIDC_TOKEN="$idToken"
         export ARM_CLIENT_SECRET="$servicePrincipalKey"
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
-        
+
         echo "====== terraform applying ======="
         terragrunt run --all --working-dir "${{ parameters.bootstrapWorkingDir }}" --non-interactive --provider-cache -- apply -parallelism=30
 
@@ -100,7 +100,7 @@ steps:
       visibleAzLogin: false
       scriptType: bash
       scriptLocation: inlineScript
-      inlineScript: |        
+      inlineScript: |
         echo "======= terragrunt info ======="
         echo "  $(terragrunt --version)"
         echo "  $(terragrunt info print)"
@@ -170,7 +170,7 @@ steps:
           echo "     $(basename $dag)"
           #dir=$(dirname $dag)
           #dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-        
+
           dag_basename=$(basename "$dag" .dot)
           # copy actual dot file
           cp "$dag" "$(Build.ArtifactStagingDirectory)/plans/tg-dag/$dag_basename.dot"
@@ -184,42 +184,42 @@ steps:
           echo "====== tfplan artifact prepare ======="
           echo "  looking for .tfplan files in ${{ parameters.workingDir }}"
           plans=($(find "${{ parameters.workingDir }}" -iname "*.tfplan" -type f))
-        
+
           changed_plans_count=0
           unchanged_plans_count=0
-        
+
           for plan in "${plans[@]}"; do
             echo "  Processing: $(basename $plan)"
             dir=$(dirname $plan)
             dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
-          
+
             # Generate JSON using terragrunt (slow but reliable)
             terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json" 2>/dev/null
-          
+
             # Read the generated JSON for change detection
             plan_json_content=$(cat "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json")
-          
+
             # Check for resource changes (excluding no-op and data sources that are just reads)
             resource_change_count=$(echo "$plan_json_content" | jq '
-              [.resource_changes[]? | 
-              select(.change.actions != ["no-op"]) | 
+              [.resource_changes[]? |
+              select(.change.actions != ["no-op"]) |
               select(.mode != "data" or .change.actions != ["read"])] | length
             ' 2>/dev/null || echo "0")
-          
+
             # Check for output changes (only count outputs with non-no-op actions)
             output_change_count=$(echo "$plan_json_content" | jq '
               [.output_changes // {} | to_entries[] | select(.value.actions != ["no-op"])] | length
             ' 2>/dev/null || echo "0")
-          
+
             # Total changes
             total_changes=$((resource_change_count + output_change_count))
-          
+
             if [[ "$total_changes" -gt 0 ]]; then
               has_changes="true"
             else
               has_changes="false"
             fi
-          
+
             if [[ "$has_changes" == "true" ]]; then
               echo "   Changes detected - preparing terraform plan .tfplan and .json as artifact"
               # Copy actual plan file
