@@ -48,10 +48,10 @@ parameters:
         level1/connectivity/az-privatelink-privatedns-zones,
         level2,
         level2/connectivity,
+        level2/connectivity/az-connectivity-bastion,
         level2/connectivity/az-alz-connectivity-virtual-wan,
         level2/connectivity/az-connectivity-management
     ]
-
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
