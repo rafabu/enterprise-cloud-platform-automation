@@ -58,21 +58,50 @@ stages:
           terraformVersion: ${{ parameters.terraform_version }}
           approversTeamName: $(approversTeamName)
 
-  - stage: ecp_level1
-    displayName: '${{ parameters.ecp_environment_name }}: level1'
+  - stage: ecp_level1_ecproot
+    displayName: '${{ parameters.ecp_environment_name }}: level1 (ecproot)'
     variables:
       - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
     jobs:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
-          name: level1
-          displayName: "Level 1 Infrastructure"
+          name: level1_ecproot
+          displayName: "Level 1 Infrastructure (ECP Root)"
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/ecproot
           tgFilter: ""
+          bootstrapWorkingDir: ""
+          tfDestroy: false
+          tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
+          tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
+          tfBackendConfigJSONL2: $(ecp_tf_backend_storage_azure_l2)
+          tfBackendConfigJSONL3: $(ecp_tf_backend_storage_azure_l3)
+          gitRepoURL: $(ecp_configuration_repo_url)
+          gitRepoRef: $(ecp_configuration_repo_ref)
+          gitSparseIncludeFolder: $(ecp_configuration_repo_deployment_root_path)
+          gitCheckoutPath: s/enterprise-cloud-platform-conf
+          terragruntVersion: ${{ parameters.terragrunt_version }}
+          terraformVersion: ${{ parameters.terraform_version }}
+          approversTeamName: $(approversTeamName)
+
+  - stage: ecp_level1_main
+    displayName: '${{ parameters.ecp_environment_name }}: level1 (main)'
+    variables:
+      - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
+    jobs:
+      - template: templates/jbs-tg-plan-approve-apply.yaml
+        parameters:
+          ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
+          name: level1_main
+          displayName: "Level 1 Infrastructure (Main)"
+          ####### TODO: once we have separate service connections for each level, update these parameters accordingly
+          serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
+          serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1
+          tgFilter: "!ecproot/**"
           bootstrapWorkingDir: ""
           tfDestroy: false
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
