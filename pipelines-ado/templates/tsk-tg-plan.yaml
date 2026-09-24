@@ -61,7 +61,7 @@ steps:
         echo "  $(terragrunt info print)"
         echo "  TG_PROVIDER_CACHE_DIR: $TG_PROVIDER_CACHE_DIR"
         echo "======= terraform info ======="
-        echo "  $(terragrunt run version)"
+        echo "  $(terragrunt run version -- -json)"
         echo "======= working directory ======="
         echo "  ${{ parameters.bootstrapWorkingDir }}"
         echo "========================= ======="
@@ -74,7 +74,7 @@ steps:
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
 
         echo "====== terraform applying ======="
-        terragrunt run --all --working-dir "${{ parameters.bootstrapWorkingDir }}" --non-interactive --provider-cache -- apply -parallelism=30
+        terragrunt run apply --all --working-dir "${{ parameters.bootstrapWorkingDir }}" --non-interactive --provider-cache -- -parallelism=30
 
         rc=$?
         set -e
@@ -140,7 +140,7 @@ steps:
         else
           echo "====== terraform PLAN ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- plan -parallelism=30 -detailed-exitcode
+          terragrunt run plan --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- -parallelism=30 -detailed-exitcode
         fi
 
         rc=$?
@@ -187,31 +187,90 @@ steps:
 
           changed_plans_count=0
           unchanged_plans_count=0
+          direct_count=0
+          selfheal_count=0
+          fallback_count=0
 
           for plan in "${plans[@]}"; do
-            echo "  Processing: $(basename $plan)"
-            dir=$(dirname $plan)
-            dir=$(echo "$dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+            cache_dir=$(dirname "$plan")
+            working_dir=$(echo "$cache_dir" | sed 's/\(.*\)\/\.terragrunt-cache\/.*/\1/')
+            plan_name=$(basename "$plan")
+            json_file="$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/${plan_name%.tfplan}.json"
+            json_tmp="${json_file}.tmp"
+            show_log="$(Agent.TempDirectory)/${plan_name%.tfplan}-show.log"
+            conversion_method="terraform-show"
 
-            # Generate JSON using terragrunt (slow but reliable)
-            terragrunt show -json $(basename $plan) --working-dir=$dir > "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json" 2>/dev/null
+            echo "  Processing: $plan_name"
+            echo "   Plan path: $plan"
+            echo "   Plan size: $(stat --format='%s bytes' "$plan")"
+            echo "   Cache directory: $cache_dir"
+            echo "   Terragrunt working dir: $working_dir"
 
-            # Read the generated JSON for change detection
-            plan_json_content=$(cat "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json")
+            set +e
+            (cd "$cache_dir" && terraform show -json "$plan_name") > "$json_tmp" 2> "$show_log"
+            show_rc=$?
 
-            # Check for resource changes (excluding no-op and data sources that are just reads)
-            resource_change_count=$(echo "$plan_json_content" | jq '
+            if (( show_rc != 0 )); then
+              conversion_method="terraform-init-self-heal"
+              echo "   [fallback 1/2] terraform show failed (exit $show_rc); retrying after terraform init in cache dir"
+              (cd "$cache_dir" && terraform init -input=false -no-color) > "$(Agent.TempDirectory)/${plan_name%.tfplan}-init.log" 2>&1
+              init_rc=$?
+              if (( init_rc == 0 )); then
+                (cd "$cache_dir" && terraform show -json "$plan_name") > "$json_tmp" 2> "$show_log"
+                show_rc=$?
+              else
+                echo "   [fallback 1/2] terraform init self-heal also failed (exit $init_rc)"
+                cat "$(Agent.TempDirectory)/${plan_name%.tfplan}-init.log"
+              fi
+            fi
+
+            if (( show_rc != 0 )); then
+              conversion_method="terragrunt-run-show"
+              echo "   [fallback 2/2] retrying via terragrunt run show against unit working dir"
+              terragrunt run show \
+                --experiment=optional-dependency-outputs \
+                --no-dependency-outputs \
+                --working-dir "$working_dir" \
+                -- -json "$plan_name" \
+              > "$json_tmp" 2> "$show_log"
+              show_rc=$?
+            fi
+            set -e
+
+            if (( show_rc != 0 )); then
+              echo "##vso[task.logissue type=error]Failed to convert $plan_name to JSON via all fallback methods (exit $show_rc)"
+              echo "====== terraform / terragrunt show stderr ======"
+              cat "$show_log"
+              echo "==================================="
+              df -h
+              free -h
+              exit "$show_rc"
+            fi
+
+            if [[ "$conversion_method" != "terraform-show" ]]; then
+              echo "##vso[task.logissue type=warning]$plan_name required fallback '$conversion_method' to convert to JSON - investigate module/state drift for this unit"
+            fi
+            echo "   Conversion method: $conversion_method"
+
+            if ! jq empty "$json_tmp"; then
+              echo "##vso[task.logissue type=error]Generated JSON for $plan_name is invalid"
+              echo "JSON size: $(stat --format='%s bytes' "$json_tmp")"
+              exit 1
+            fi
+
+            mv "$json_tmp" "$json_file"
+            echo "   JSON size: $(stat --format='%s bytes' "$json_file")"
+
+            resource_change_count=$(jq '
               [.resource_changes[]? |
               select(.change.actions != ["no-op"]) |
               select(.mode != "data" or .change.actions != ["read"])] | length
-            ' 2>/dev/null || echo "0")
+            ' "$json_file")
 
-            # Check for output changes (only count outputs with non-no-op actions)
-            output_change_count=$(echo "$plan_json_content" | jq '
+            output_change_count=$(jq '
               [.output_changes // {} | to_entries[] | select(.value.actions != ["no-op"])] | length
-            ' 2>/dev/null || echo "0")
+            ' "$json_file")
 
-            # Total changes
             total_changes=$((resource_change_count + output_change_count))
 
             if [[ "$total_changes" -gt 0 ]]; then
@@ -222,19 +281,24 @@ steps:
 
             if [[ "$has_changes" == "true" ]]; then
               echo "   Changes detected - preparing terraform plan .tfplan and .json as artifact"
-              # Copy actual plan file
-              cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$(basename $plan)"
+              cp "$plan" "$(Build.ArtifactStagingDirectory)/plans/tf-plans-raw/$plan_name"
               changed_plans_count=$((changed_plans_count + 1))
             else
               echo "   No changes detected"
-              # Remove JSON file since we don't need it
-              rm -f "$(Build.ArtifactStagingDirectory)/plans/tf-plans-json/$(basename $plan .tfplan).json"
-              # Remove plan file to keep TerraformOutput extension from publishing it
+              rm -f "$json_file"
               rm -f "$plan"
               unchanged_plans_count=$((unchanged_plans_count + 1))
             fi
+
+            case "$conversion_method" in
+              terraform-show) direct_count=$((direct_count + 1)) ;;
+              terraform-init-self-heal) selfheal_count=$((selfheal_count + 1)) ;;
+              terragrunt-run-show) fallback_count=$((fallback_count + 1)) ;;
+            esac
           done
+
           echo "  Summary: $changed_plans_count plan(s) with changes, $unchanged_plans_count unchanged"
+          echo "  Conversion methods: direct=$direct_count, terraform-init-self-heal=$selfheal_count, terragrunt-fallback=$fallback_count"
           echo "##vso[task.setvariable variable=changed_plans_count;isOutput=true]$changed_plans_count"
         else
           echo "  Summary: no changes detected, no plan artifacts to prepare"
