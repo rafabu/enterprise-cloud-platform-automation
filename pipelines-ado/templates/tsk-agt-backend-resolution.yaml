@@ -28,198 +28,133 @@ steps:
       targetType: inline
       script: |
         #!/bin/bash
-        set -e
+        set -euo pipefail
 
         HOSTS_FILE="/etc/hosts"
+        LOOKUP_TIMEOUT=2
 
-        # Array of levels to process
-        LEVELS=("level0" "level1" "level2" "level3")
+        LEVELS=(level0 level1 level2 level3)
 
-        for LEVEL in "${LEVELS[@]}"; do
+        declare -A BACKEND_JSON=(
+          [level0]='${{ parameters.tfBackendConfigJSONL0 }}'
+          [level1]='${{ parameters.tfBackendConfigJSONL1 }}'
+          [level2]='${{ parameters.tfBackendConfigJSONL2 }}'
+          [level3]='${{ parameters.tfBackendConfigJSONL3 }}'
+        )
+
+        WORK_DIR=$(mktemp -d)
+        trap 'rm -rf "$WORK_DIR"' EXIT
+
+        hosts_entry_present() {
+          local ip="$1" fqdn="$2"
+          grep -Eq "^[[:space:]]*${ip//./\\.}[[:space:]]+${fqdn//./\\.}([[:space:]]|$)" "$HOSTS_FILE"
+        }
+
+        # getent honours /etc/hosts then DNS (same as ping did) but without sending packets
+        resolve_ipv4() {
+          timeout "$LOOKUP_TIMEOUT" getent ahostsv4 "$1" 2>/dev/null | awk '{print $1}' | sort -u
+        }
+
+        inspect_level() {
+          local level="$1"
+          local json="${BACKEND_JSON[$level]}"
+          local decision_file="$WORK_DIR/$level.decision"
+          printf 'none\n' > "$decision_file"
+
+          if [[ -z "$json" || "$json" == "{}" ]]; then
+            echo "  status          : skipped (no backend configuration provided)"
+            return 0
+          fi
+
+          local fqdn ip name container
+          fqdn=$(jq -r '.fqdn // empty' <<<"$json")
+          ip=$(jq -r '.private_ip_address // empty' <<<"$json")
+          name=$(jq -r '.name // empty' <<<"$json")
+          container=$(jq -r '.tf_backend_container // empty' <<<"$json")
+
+          echo "  storage account : ${name:-<unset>}"
+          echo "  container       : ${container:-<unset>}"
+          echo "  fqdn            : ${fqdn:-<unset>}"
+          echo "  expected ip     : ${ip:-<unset>}"
+
+          if [[ -z "$fqdn" || -z "$ip" ]]; then
+            echo "  status          : WARNING - json must provide both 'fqdn' and 'private_ip_address'"
+            printf 'warn\n' > "$decision_file"
+            return 0
+          fi
+
+          if hosts_entry_present "$ip" "$fqdn"; then
+            echo "  status          : OK (hosts entry already present, no lookup needed)"
+            return 0
+          fi
+
+          local resolved
+          resolved=$(resolve_ipv4 "$fqdn" | paste -sd' ' -) || true
+
+          local match=false r
+          for r in $resolved; do
+            [[ "$r" == "$ip" ]] && { match=true; break; }
+          done
+
+          if [[ "$match" == true ]]; then
+            echo "  resolved ip     : $resolved"
+            echo "  status          : OK (dns already returns expected ip)"
+            return 0
+          fi
+
+          if [[ -z "$resolved" ]]; then
+            echo "  resolved ip     : <none> (no answer within ${LOOKUP_TIMEOUT}s)"
+          else
+            echo "  resolved ip     : $resolved (does not match expected)"
+          fi
+          echo "  status          : hosts entry required"
+          printf 'add\t%s\t%s\n' "$ip" "$fqdn" > "$decision_file"
+        }
+
+        echo "INFO: inspecting backend endpoints for ${#LEVELS[@]} levels (lookup timeout ${LOOKUP_TIMEOUT}s, run in parallel)"
+
+        for level in "${LEVELS[@]}"; do
+          inspect_level "$level" > "$WORK_DIR/$level.log" 2>&1 &
+        done
+        wait
+
+        pending_entries=()
+        warned=false
+
+        for level in "${LEVELS[@]}"; do
           echo ""
-          echo "INFO: ========================================================"
-          echo "INFO: Processing Level: $LEVEL"
-          echo "INFO: ========================================================"
+          echo "=== $level ==="
+          cat "$WORK_DIR/$level.log"
 
-          # Select the appropriate backend JSON based on level
-          case "$LEVEL" in
-            "level0")
-              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL0 }}'
+          decision=$(<"$WORK_DIR/$level.decision")
+          case "${decision%%$'\t'*}" in
+            add)
+              IFS=$'\t' read -r _ d_ip d_fqdn <<<"$decision"
+              pending_entries+=("$d_ip"$'\t'"$d_fqdn")
               ;;
-            "level1")
-              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL1 }}'
-              ;;
-            "level2")
-              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL2 }}'
-              ;;
-            "level3")
-              BACKEND_JSON='${{ parameters.tfBackendConfigJSONL3 }}'
-              ;;
-            *)
-              echo "ERROR: Unknown level: $LEVEL"
-              continue
-              ;;
+            warn) warned=true ;;
           esac
-
-          # Skip if JSON is empty or just '{}'
-          if [[ -z "$BACKEND_JSON" ]] || [[ "$BACKEND_JSON" == "{}" ]]; then
-            echo "INFO: No backend configuration for $LEVEL, skipping..."
-            continue
-          fi
-
-          echo "INFO: ======= Extracting Backend Configuration ======="
-          echo "INFO:     Level: $LEVEL"
-          echo "INFO:     Raw backend JSON: $BACKEND_JSON"
-          echo "INFO: ==============================================="
-
-          # Extract FQDN and Private IP from JSON
-          if command -v jq >/dev/null 2>&1; then
-            echo "INFO: Using jq for JSON parsing..."
-            BACKEND_FQDN=$(echo "$BACKEND_JSON" | jq -r '.fqdn // empty')
-            EXPECTED_IP=$(echo "$BACKEND_JSON" | jq -r '.private_ip_address // empty')
-            BACKEND_NAME=$(echo "$BACKEND_JSON" | jq -r '.name // empty')
-            BACKEND_CONTAINER=$(echo "$BACKEND_JSON" | jq -r '.tf_backend_container // empty')
-          else
-            echo "INFO: jq not available, using grep/sed fallback..."
-            BACKEND_FQDN=$(echo "$BACKEND_JSON" | grep -o '"fqdn":"[^"]*"' | sed 's/"fqdn":"\([^"]*\)"/\1/' || echo "")
-            EXPECTED_IP=$(echo "$BACKEND_JSON" | grep -o '"private_ip_address":"[^"]*"' | sed 's/"private_ip_address":"\([^"]*\)"/\1/' || echo "")
-            BACKEND_NAME=$(echo "$BACKEND_JSON" | grep -o '"name":"[^"]*"' | sed 's/"name":"\([^"]*\)"/\1/' || echo "")
-            BACKEND_CONTAINER=$(echo "$BACKEND_JSON" | grep -o '"tf_backend_container":"[^"]*"' | sed 's/"tf_backend_container":"\([^"]*\)"/\1/' || echo "")
-          fi
-
-          echo "INFO: Extracted values:"
-          echo "      FQDN:       $BACKEND_FQDN"
-          echo "      Private IP: $EXPECTED_IP"
-          echo "      Name:       $BACKEND_NAME"
-          echo "      Container:  $BACKEND_CONTAINER"
-          echo ""
-
-          # Validate that we have the required values
-          if [[ -z "$BACKEND_FQDN" ]]; then
-            echo "Error: Could not extract FQDN from JSON for $LEVEL"
-            echo "       Please check that the JSON contains a 'fqdn' property"
-            continue
-          fi
-
-          if [[ -z "$EXPECTED_IP" ]]; then
-            echo "Error: Could not extract private IP from JSON for $LEVEL"
-            echo "       Please check that the JSON contains a 'private_ip_address' property"
-            continue
-          fi
-
-          echo "INFO: ======= Backend DNS Resolution Check ======="
-          echo "INFO:     FQDN: $BACKEND_FQDN"
-          echo "INFO:     Expected IP: $EXPECTED_IP"
-          echo "INFO: ============================================"
-
-          # Function to resolve FQDN using methods that honour /etc/hosts
-          resolve_fqdn() {
-              local fqdn="$1"
-              local resolved_ips=()
-
-              echo "INFO: Resolving FQDN '$fqdn' (checking /etc/hosts and local resolution)..." >&2
-
-              # Method 3: ping test (honours /etc/hosts)
-              if [[ ${#resolved_ips[@]} -eq 0 ]] && command -v ping >/dev/null 2>&1; then
-                  echo "INFO: Trying ping resolution test..." >&2
-                  ping_output=$(ping -c 1 -W 2 "$fqdn" 2>/dev/null | head -1 || true)
-                  if [[ -n "$ping_output" ]]; then
-                      # Extract IP from ping output: "PING hostname (IP) ..."
-                      if [[ $ping_output =~ \(([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\) ]]; then
-                          ip="${BASH_REMATCH[1]}"
-                          if [[ ! " ${resolved_ips[*]} " =~ " $ip " ]]; then
-                              resolved_ips+=("$ip")
-                          fi
-                      fi
-                  fi
-              fi
-
-              # Return only the IP addresses
-              echo "${resolved_ips[*]}"
-          }
-
-          # Resolve the FQDN
-          RESOLVED_IPS=$(resolve_fqdn "$BACKEND_FQDN")
-
-          if [[ -z "$RESOLVED_IPS" ]]; then
-              echo "Error: DNS resolution failed completely for '$BACKEND_FQDN'"
-              NEEDS_HOSTS_ENTRY=true
-          else
-              echo "INFO: Resolved IPs: $RESOLVED_IPS"
-
-              # Trim whitespace from both variables for comparison
-              RESOLVED_IPS_TRIMMED=$(echo "$RESOLVED_IPS" | xargs)
-              EXPECTED_IP_TRIMMED=$(echo "$EXPECTED_IP" | xargs)
-
-              echo "DEBUG: Comparing IPs:"
-              echo "       Resolved (trimmed): '$RESOLVED_IPS_TRIMMED'"
-              echo "       Expected (trimmed): '$EXPECTED_IP_TRIMMED'"
-
-              # Check if the expected IP is among the resolved IPs
-              if [[ "$RESOLVED_IPS_TRIMMED" == "$EXPECTED_IP_TRIMMED" ]] || [[ " $RESOLVED_IPS_TRIMMED " =~ " $EXPECTED_IP_TRIMMED " ]]; then
-                  echo "INFO: FQDN '$BACKEND_FQDN' correctly resolves to expected IP '$EXPECTED_IP_TRIMMED'"
-                  NEEDS_HOSTS_ENTRY=false
-              else
-                  echo "WARNING: FQDN '$BACKEND_FQDN' does not resolve to expected IP '$EXPECTED_IP_TRIMMED'"
-                  echo "         Resolved to: $RESOLVED_IPS_TRIMMED but expected: $EXPECTED_IP_TRIMMED"
-                  echo "         need to add local hosts entry"
-                  NEEDS_HOSTS_ENTRY=true
-              fi
-          fi
-
-          if [[ "$NEEDS_HOSTS_ENTRY" == "true" ]]; then
-              echo ""
-              echo "INFO: ======= Creating Hosts File Entry ======="
-
-              # Check if hosts file exists
-              if [[ ! -f "$HOSTS_FILE" ]]; then
-                  echo "Error: Hosts file '$HOSTS_FILE' does not exist"
-                  exit 1
-              fi
-
-              ENTRY_TO_ADD="$EXPECTED_IP\t$BACKEND_FQDN"
-
-              # Check if entry already exists with the correct IP
-              if grep -q "^[[:space:]]*$EXPECTED_IP[[:space:]]\+$BACKEND_FQDN[[:space:]]*$" "$HOSTS_FILE"; then
-                  echo "INFO: Hosts entry already exists with correct IP"
-              else
-                  echo "INFO: Adding hosts entry: $EXPECTED_IP  $BACKEND_FQDN"
-
-                  # Add the new entry
-                  echo -e "$EXPECTED_IP\t$BACKEND_FQDN" | sudo tee -a "$HOSTS_FILE" > /dev/null
-
-                  echo "INFO: Added hosts entry: $EXPECTED_IP  $BACKEND_FQDN"
-
-                  # Verify the entry was added
-                  if grep -q "^[[:space:]]*$EXPECTED_IP[[:space:]]\+$BACKEND_FQDN[[:space:]]*$" "$HOSTS_FILE"; then
-                      echo "INFO: Hosts entry verified successfully"
-                  else
-                      echo "Error: Failed to verify hosts entry"
-                      exit 1
-                  fi
-              fi
-          else
-              echo ""
-              echo "INFO: No hosts file modification needed"
-          fi
-
-          echo ""
-          echo "INFO: ======= Final Verification ======="
-
-          # Brief pause to allow any cache refresh
-          sleep 2
-
-          # Final verification - test resolution again
-          FINAL_IPS=$(resolve_fqdn "$BACKEND_FQDN")
-
-          if [[ -n "$FINAL_IPS" ]]; then
-              echo "INFO: Final resolution test: $FINAL_IPS"
-          else
-              echo "Error: Final verification failed - could not resolve '$BACKEND_FQDN'"
-          fi
         done
 
         echo ""
-        echo "INFO: ========================================================"
-        echo "INFO: All levels processed"
-        echo "INFO: ========================================================"
+        if (( ${#pending_entries[@]} > 0 )); then
+          echo "=== applying ${#pending_entries[@]} hosts entries ==="
+          printf '%s\n' "${pending_entries[@]}" | sudo tee -a "$HOSTS_FILE" > /dev/null
+
+          for entry in "${pending_entries[@]}"; do
+            e_ip="${entry%%$'\t'*}"
+            e_fqdn="${entry##*$'\t'}"
+            if hosts_entry_present "$e_ip" "$e_fqdn"; then
+              echo "  verified: $e_ip -> $e_fqdn"
+            else
+              echo "##vso[task.logissue type=error]Failed to verify hosts entry: $e_ip -> $e_fqdn"
+              exit 1
+            fi
+          done
+        else
+          echo "=== no hosts file changes required ==="
+        fi
+
+        if [[ "$warned" == true ]]; then
+          echo "##vso[task.logissue type=warning]One or more backend levels had incomplete configuration - see per-level output above"
+        fi
