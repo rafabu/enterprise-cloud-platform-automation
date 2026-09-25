@@ -136,7 +136,7 @@ steps:
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform PLAN DESTROY ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as destroy > "${{ parameters.workingDir }}/terragrunt-dag.dot"
-          terragrunt run --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- plan -destroy -parallelism=30 -detailed-exitcode
+          terragrunt run plan --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- -destroy -parallelism=30 -detailed-exitcode
         else
           echo "====== terraform PLAN ======="
           terragrunt list --working-dir "${{ parameters.workingDir }}" --format=dot --queue-construct-as plan > "${{ parameters.workingDir }}/terragrunt-dag.dot"

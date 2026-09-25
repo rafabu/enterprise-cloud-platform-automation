@@ -120,7 +120,7 @@ steps:
 
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
           echo "====== terraform DESTROY ======="
-          terragrunt run destroy--all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- -parallelism=30
+          terragrunt run destroy --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- -parallelism=30
         else
           echo "====== terraform APPLY ======="
           terragrunt run apply --all --working-dir "${{ parameters.workingDir }}" "${tg_filter_args[@]}" --non-interactive --provider-cache -- -parallelism=30
