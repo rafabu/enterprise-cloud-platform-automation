@@ -9,8 +9,8 @@ parameters:
   - name: workingDir
     type: string
   - name: tgFilter
-    type: string
-    default: ''
+    type: object
+    default: []
   - name: bootstrapWorkingDir
     type: string
     default: ''
@@ -128,9 +128,9 @@ steps:
         if [ -n "$idToken" ] && [ -z "$servicePrincipalKey" ]; then export ARM_USE_OIDC="true"; else export ARM_USE_OIDC="false"; fi
 
         tg_filter_args=()
-        if [ -n "${{ parameters.tgFilter }}" ]; then
-          tg_filter_args=(--filter "${{ parameters.tgFilter }}")
-        fi
+        while IFS= read -r tg_filter; do
+          tg_filter_args+=(--filter "$tg_filter")
+        done < <(jq -r '.[]' <<< "$TG_FILTER_JSON")
 
         # use -detailed-exitcode which informs if there are changes in the plan
         if [ "${{ parameters.tfDestroy }}" = "True" ]; then
@@ -309,6 +309,7 @@ steps:
 
         echo "##vso[task.setvariable variable=planFailed=true]false"
     env:
+      TG_FILTER_JSON: ${{ convertToJson(parameters.tgFilter) }}
       TG_PROVIDER_CACHE_DIR: $(Agent.TempDirectory)/terragrunt/providers
       TG_PROVIDER_CACHE: "1"
       # backend variables set for all three levels

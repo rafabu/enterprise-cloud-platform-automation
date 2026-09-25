@@ -46,6 +46,7 @@ parameters:
         level1/management/az-alz-base,
         level1/connectivity,
         level1/connectivity/az-privatelink-privatedns-zones,
+        'level1 & level2',
         level2,
         level2/connectivity,
         level2/connectivity/az-connectivity-bastion,
@@ -80,6 +81,9 @@ stages:
           ${{ if eq(parameters.terragrunt_stacks, 'all') }}:
             ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
             workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
+          ${{ elseif eq(parameters.terragrunt_stacks, 'level1 & level2') }}:
+            ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
+            workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/
           ${{ else }}:
             ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level${{ replace(split(parameters.terragrunt_stacks, '/')[0], 'level', '') }}
             workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/${{ parameters.terragrunt_stacks }}
@@ -87,7 +91,14 @@ stages:
           displayName: "Infrastructure Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          tgFilter: "!bootstrap/**"
+          ${{ if eq(parameters.terragrunt_stacks, 'level1 & level2') }}:
+            tgFilter:
+              - "./level1/**"
+              - "./level2/**"
+              - "!bootstrap/**"
+          ${{ else }}:
+            tgFilter:
+              - "!bootstrap/**"
           # bootstrap is only (sometimes) needed on level 0
           bootstrapWorkingDir: ${{ iif(or(eq(parameters.terragrunt_stacks, 'all'), contains(parameters.terragrunt_stacks, 'level0')), '$(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/', '') }}
           tfDestroy: ${{ parameters.terraform_destroy }}
