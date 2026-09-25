@@ -53,11 +53,11 @@ parameters:
         level2/connectivity/az-connectivity-management
     ]
   - name: terraform_destroy
-    displayName: 'Run Terraform Destroy (DANGER ZONE!!!)'
+    displayName: 'Terraform Destroy (DANGER ZONE!!!)'
     type: boolean
     default: false
   - name: apply_only
-    displayName: 'Run Terraform Apply only (skip plan & approval)'
+    displayName: 'Terraform Apply only (skip plan & approval)'
     type: boolean
     default: false
 
