@@ -48,11 +48,15 @@ parameters:
     default: latest
   - name: approversTeamName
     type: string
+  - name: applyOnly
+    type: boolean
+    default: false
 
 jobs:
   - job: terraform_plan
     displayName: 'terraform: plan - ${{ parameters.displayName }}'
     timeoutInMinutes: 120
+    condition:  ${{ eq(parameters.applyOnly, false) }}
     steps:
       - template: ./tsk-agt-ims-output.yaml
         parameters:
@@ -131,6 +135,7 @@ jobs:
     displayName: "terraform: approve changes - ${{ parameters.displayName }}"
     timeoutInMinutes: 60
     condition: and(
+        ${{ eq(parameters.applyOnly, false) }},
         eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
         in(dependencies.terraform_plan.result, 'Succeeded', 'SucceededWithIssues')
       )
@@ -154,9 +159,15 @@ jobs:
       - terraform_plan
       - manual_approval
     condition: and(
-        eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
-        in(dependencies.terraform_plan.result, 'Succeeded', 'SucceededWithIssues'),
-        in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
+        not(canceled()),
+        or(
+          ${{ eq(parameters.applyOnly, true) }},
+          and(
+            eq(dependencies.terraform_plan.outputs['tfplan.tf_plan_result'], 'changed'),
+            in(dependencies.terraform_plan.result, 'Succeeded', 'SucceededWithIssues'),
+            in(dependencies.manual_approval.result, 'Succeeded', 'SucceededWithIssues')
+          )
+        )
       )
     environment: ${{ parameters.ecpEnvironmentName }}
     strategy:
