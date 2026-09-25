@@ -52,6 +52,10 @@ parameters:
         level2/connectivity/az-alz-connectivity-virtual-wan,
         level2/connectivity/az-connectivity-management
     ]
+  - name: terraform_destroy
+    displayName: 'Run Terraform Destroy (DANGER ZONE!!!)'
+    type: boolean
+    default: false
 
 variables:
 - group: "ecp_bootstrap_${{ parameters.ecp_environment_name }}"
@@ -82,7 +86,7 @@ stages:
           tgFilter: "!bootstrap/**"
           # bootstrap is only (sometimes) needed on level 0
           bootstrapWorkingDir: ${{ iif(or(eq(parameters.terragrunt_stacks, 'all'), contains(parameters.terragrunt_stacks, 'level0')), '$(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/', '') }}
-          tfDestroy: false
+          tfDestroy: ${{ parameters.terraform_destroy }}
           # tfBackendConfigJSON: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
