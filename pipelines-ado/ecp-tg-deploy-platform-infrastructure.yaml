@@ -42,9 +42,9 @@ stages:
           displayName: "Level 0 Infrastructure"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/level0/
           tgFilter: "!bootstrap/**"
-          bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level0/bootstrap/
+          bootstrapWorkingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/level0/bootstrap/
           tfDestroy: false
           tfBackendConfigJSONL0: $(ecp_tf_backend_storage_azure_l0)
           tfBackendConfigJSONL1: $(ecp_tf_backend_storage_azure_l1)
@@ -71,7 +71,7 @@ stages:
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1/ecproot
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/level1/ecproot
           tgFilter: ""
           bootstrapWorkingDir: ""
           tfDestroy: false
@@ -100,7 +100,7 @@ stages:
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level1
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/level1
           tgFilter: "!ecproot/**"
           bootstrapWorkingDir: ""
           tfDestroy: false
@@ -129,7 +129,7 @@ stages:
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
           serviceConnectionNameApply: $(ecp_ado_service_connection_azure_l0-contribute)
-          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_root_path)/dev/level2/
+          workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/level2/
           tgFilter: ""
           bootstrapWorkingDir: ""
           tfDestroy: false
