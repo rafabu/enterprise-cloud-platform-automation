@@ -38,6 +38,7 @@ stages:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level0
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: level0
           displayName: "Level 0 Infrastructure"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)
@@ -66,6 +67,7 @@ stages:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: level1_ecproot
           displayName: "Level 1 Infrastructure (ECP Root)"
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
@@ -95,6 +97,7 @@ stages:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level1
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: level1_main
           displayName: "Level 1 Infrastructure (Main)"
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly
@@ -124,6 +127,7 @@ stages:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level2
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: level2
           displayName: "Level 2 Infrastructure"
           ####### TODO: once we have separate service connections for each level, update these parameters accordingly

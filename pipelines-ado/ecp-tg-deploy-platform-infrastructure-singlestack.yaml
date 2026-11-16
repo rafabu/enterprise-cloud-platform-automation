@@ -85,6 +85,7 @@ stages:
           ${{ else }}:
             ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level${{ replace(split(parameters.terragrunt_stacks, '/')[0], 'level', '') }}
             workingDir: $(Agent.BuildDirectory)/s/enterprise-cloud-platform-conf/$(ecp_configuration_repo_deployment_environment_path)/${{ parameters.terragrunt_stacks }}
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: tgstack
           displayName: "Infrastructure Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)

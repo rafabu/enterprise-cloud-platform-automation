@@ -38,6 +38,7 @@ stages:
       - template: templates/jbs-tg-plan-approve-apply.yaml
         parameters:
           ecpEnvironmentName: ${{ parameters.ecp_environment_name }}_ECP_Platform_Level3
+          ecpNetworkAddressSpace: $(ecp_network_address_space)
           name: lztgstack
           displayName: "Landing Zone Unit"
           serviceConnectionNamePlan: $(ecp_ado_service_connection_azure_l0-read)

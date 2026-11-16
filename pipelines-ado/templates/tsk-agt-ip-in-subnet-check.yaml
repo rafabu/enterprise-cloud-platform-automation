@@ -1,0 +1,52 @@
+parameters:
+  - name: cidrSubnet
+    type: string
+
+steps:
+  - task: Bash@3
+    name: check_agent_ip_in_subnet
+    displayName: Check agent IP is in ECP subnet
+    env:
+      CIDR_SUBNET: ${{ parameters.cidrSubnet }}
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+
+        python3 - <<'PY'
+        import ipaddress
+        import json
+        import os
+        import subprocess
+        import sys
+
+        try:
+            cidr = os.environ["CIDR_SUBNET"]
+            if "/" not in cidr:
+                raise ValueError("CIDR must include a prefix length")
+            network = ipaddress.IPv4Network(cidr, strict=False)
+
+            result = subprocess.run(
+                ["ip", "-j", "-4", "address", "show", "up"],
+                check=True, capture_output=True, text=True,
+            )
+            interfaces = json.loads(result.stdout)
+            addresses = [
+                (interface["ifname"], ipaddress.IPv4Address(address["local"]))
+                for interface in interfaces
+                if interface["ifname"] != "lo"
+                for address in interface.get("addr_info", [])
+                if address.get("family") == "inet"
+            ]
+            if not addresses:
+                raise ValueError("No active non-loopback IPv4 addresses found")
+
+            matches = [(name, ip) for name, ip in addresses if ip in network]
+            print(f"Agent addresses: {addresses}; target: {network}")
+            print(f"Matching addresses: {matches}")
+            value = "true" if matches else "false"
+            print(f"##vso[task.setvariable variable=agentIpInSubnet;isOutput=true]{value}")
+        except (KeyError, ValueError, OSError, subprocess.SubprocessError) as exc:
+            print(f"##vso[task.logissue type=error]Subnet check failed: {exc}")
+            sys.exit(1)
+        PY

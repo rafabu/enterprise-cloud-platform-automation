@@ -2,6 +2,8 @@
 parameters:
   - name: ecpEnvironmentName
     type: string
+  - name: ecpNetworkAddressSpace
+    type: string
   - name: name
     type: string
   - name: displayName
@@ -62,6 +64,10 @@ jobs:
         parameters:
           name: instance_metadata
           displayName: instance metadata
+
+      - template: ./tsk-agt-ip-in-subnet-check.yaml
+        parameters:
+          cidrSubnet: ${{ parameters.ecpNetworkAddressSpace }}
 
       - template: ./tsk-agt-backend-resolution.yaml
         parameters:
@@ -174,6 +180,10 @@ jobs:
       runOnce:
         deploy:
           steps:
+            - template: ./tsk-agt-ip-in-subnet-check.yaml
+              parameters:
+                cidrSubnet:  ${{ parameters.ecpNetworkAddressSpace }}
+
             - template: ./tsk-agt-backend-resolution.yaml
               parameters:
                 name: backend_name_resolution

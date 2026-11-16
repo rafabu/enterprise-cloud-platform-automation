@@ -24,6 +24,7 @@ steps:
   - task: Bash@3
     name: ${{ parameters.name }}
     displayName: ${{ parameters.displayName }}
+    condition: and(succeeded(), eq(variables['check_agent_ip_in_subnet.agentIpInSubnet'], 'true'))
     inputs:
       targetType: inline
       script: |
